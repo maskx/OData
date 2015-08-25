@@ -46,11 +46,14 @@
 <h2>
 <a id="server-config" class="anchor" href="#server-config" aria-hidden="true"><span class="octicon octicon-link"></span></a>Server config</h2>
 
-<p>1 In OWIN Startup class Configuration function add follow code： </p>
+<ol>
+<li> In OWIN Startup class Configuration function add follow code： 
+`using maskx.OData;</li>
+</ol>
 
-<p><code>config.Routes.MapDynamicODataServiceRoute("odata","odata");</code></p>
+<p>config.Routes.MapDynamicODataServiceRoute("routeName","routePrefix");</p>
 
-<p><code>DynamicOData.AddDataSource(new maskx.Data.OData.DataSource.SqlDataSource("db", "ConnectionString"));</code></p>
+<p>DynamicOData.AddDataSource(new maskx.OData.Sql.DataSource("db", "ConnectionString"));`</p>
 
 <h2>
 <a id="client-usage" class="anchor" href="#client-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Client usage</h2>
