@@ -33,19 +33,24 @@
 <h2>
 <a id="sql-config" class="anchor" href="#sql-config" aria-hidden="true"><span class="octicon octicon-link"></span></a>SQL Config</h2>
 
-<p>execute the database initial script：(at folder Sql/initialScript/ )
-    GetEdmFuncInfo.sql
-    GetEdmModelInfo.sql 
-    GetEdmRelationship.sql<br>
-    GetEdmTVFInfo.sql</p>
+<p>execute the database initial script：(at folder Sql/initialScript/ )</p>
+
+<ul>
+<li> GetEdmFuncInfo.sql</li>
+<li> GetEdmModelInfo.sql </li>
+<li> GetEdmRelationship.sql<br>
+</li>
+<li> GetEdmTVFInfo.sql</li>
+</ul>
 
 <h2>
 <a id="server-config" class="anchor" href="#server-config" aria-hidden="true"><span class="octicon octicon-link"></span></a>Server config</h2>
 
 <p>1 In OWIN Startup class Configuration function add follow code： </p>
 
-<p><code>config.Routes.MapDynamicODataServiceRoute("odata","odata");</code>
- <code>DynamicOData.AddDataSource(new maskx.Data.OData.DataSource.SqlDataSource("db", Common.Utilities.ConnectionString));</code></p>
+<p><code>config.Routes.MapDynamicODataServiceRoute("odata","odata");</code></p>
+
+<p><code>DynamicOData.AddDataSource(new maskx.Data.OData.DataSource.SqlDataSource("db", "ConnectionString"));</code></p>
 
 <h2>
 <a id="client-usage" class="anchor" href="#client-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Client usage</h2>
