@@ -86,8 +86,8 @@ namespace maskx.OData.Sql
             if (options.Filter == null)
                 return string.Empty;
             string where= SQLFilterBinder.BindFilterQueryOption(options.Filter.FilterClause, options.Context.Model);
-            if (string.IsNullOrEmpty(where))
-                where += " where " + where;
+            if (!string.IsNullOrEmpty(where))
+                where = " where " + where;
             return where;
         }
         internal static string ParseWhere(this ExpandedNavigationSelectItem expanded,string condition, EdmModel model)
