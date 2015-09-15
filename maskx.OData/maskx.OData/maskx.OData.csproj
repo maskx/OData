@@ -9,8 +9,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>maskx.OData</RootNamespace>
     <AssemblyName>maskx.OData</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -91,12 +92,17 @@
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup>
-    <Content Include="Sql\initialScript\GetEdmFuncInfo.sql" />
-    <Content Include="Sql\initialScript\GetEdmModelInfo.sql" />
-    <Content Include="Sql\initialScript\GetEdmRelationship.sql" />
-    <Content Include="Sql\initialScript\GetEdmTVFInfo.sql" />
+    <Folder Include="Sql\initialScript\v2008\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Sql\initialScript\v2012\GetEdmSPInfo.sql" />
+    <Content Include="Sql\initialScript\v2012\GetEdmModelInfo.sql" />
+    <Content Include="Sql\initialScript\v2012\GetEdmRelationship.sql" />
+    <Content Include="Sql\initialScript\v2012\GetEdmSPResultSet.sql" />
+    <Content Include="Sql\initialScript\v2012\GetEdmTVFInfo.sql" />
+    <Content Include="Sql\initialScript\v2012\GetEdmTVFResultSet.sql" />
+    <Content Include="Sql\initialScript\v2012\GetEdmUDTInfo.sql" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

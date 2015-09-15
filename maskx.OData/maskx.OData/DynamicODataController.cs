@@ -232,6 +232,8 @@ namespace maskx.OData
         }
         public HttpResponseMessage Post(IEdmEntityObject entity)
         {
+            if (entity == null)
+                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "entity cannot be empty");
             ODataPath path = Request.ODataProperties().Path;
             IEdmType edmType = path.EdmType;
             if (edmType.TypeKind != EdmTypeKind.Collection)
@@ -287,6 +289,8 @@ namespace maskx.OData
         public HttpResponseMessage Patch(string key, IEdmEntityObject entity)
         {
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
+            if (entity == null)
+                return Request.CreateResponse(HttpStatusCode.BadRequest, "entity cannot be empty.");
             var ds = DataSourceProvider.GetDataSource(dsName);
             if (DynamicOData.BeforeExcute != null)
             {

@@ -12,7 +12,7 @@ GO
 -- Create date: 2015-6-10
 -- Description:	Get Stored Procedures information 
 -- =============================================
-CREATE PROCEDURE [dbo].[GetEdmFuncInfo]
+CREATE PROCEDURE [dbo].[GetEdmSPInfo]
 AS
 BEGIN
 	-- SET NOCOUNT ON added to prevent extra result sets from

@@ -1,4 +1,9 @@
-﻿using System;
+﻿
+///----------------------------------------------------------------------------------------
+///reference: https://databooster.codeplex.com/
+///
+///---------------------------------------------------------------------------------------
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -26,16 +31,18 @@ namespace maskx.OData.Sql
         #endregion
 
         #region Method
-        public void ExecuteReader(string commandText, Action<SqlDataReader> dataReader, Action<SqlParameterCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
+        public SqlParameterCollection ExecuteReader(string commandText, Action<SqlDataReader> dataReader, Action<SqlParameterCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
-            using (SqlDataReader reader = CreateReader(commandText, commandTimeout, commandType, parametersBuilder))
+            SqlParameterCollection pars = null;
+            using (SqlDataReader reader = CreateReader(commandText, commandTimeout, commandType, parametersBuilder, out pars))
             {
                 if (dataReader == null)
-                    return;
+                    return pars;
                 while (reader.Read())
                     dataReader(reader);
                 reader.Close();
             }
+            return pars;
         }
         public object ExecuteScalar(string commandText, Action<SqlParameterCollection> parametersBuilder,
            CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
@@ -87,6 +94,7 @@ namespace maskx.OData.Sql
             , int commandTimeout
             , CommandType commandType
             , Action<SqlParameterCollection> parametersBuilder
+            , out SqlParameterCollection pars
             , int resultSetCnt = 1)
         {
             for (int retry = 0; ; retry++)
@@ -94,6 +102,7 @@ namespace maskx.OData.Sql
                 try
                 {
                     SqlCommand dbCmd = CreateCommand(commandText, commandTimeout, commandType, parametersBuilder);
+                    pars = dbCmd.Parameters;
                     return dbCmd.ExecuteReader(CommandBehavior.CloseConnection);
                 }
                 catch (Exception e)
