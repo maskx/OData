@@ -1,5 +1,5 @@
 
-/****** Object:  StoredProcedure [dbo].[GetEdmFuncInfo]    Script Date: 2015/8/24 20:56:57 ******/
+/****** Object:  StoredProcedure [dbo].[GetEdmSPInfo]    Script Date: 2015/8/24 20:56:57 ******/
 SET ANSI_NULLS ON
 GO
 

@@ -393,13 +393,17 @@ namespace maskx.OData.Sql
                     principalProperties.Add(parent.FindProperty(reader["ParentColumnName"].ToString()) as IEdmStructuralProperty);
                     dependentProperties.Add(refrence.FindProperty(reader["RefreancedColumnName"].ToString()) as IEdmStructuralProperty);
                 }, null, CommandType.Text);
-                refrenceNav.PrincipalProperties = principalProperties;
-                refrenceNav.DependentProperties = dependentProperties;
+                if (refrenceNav != null)
+                {
+                    refrenceNav.PrincipalProperties = principalProperties;
+                    refrenceNav.DependentProperties = dependentProperties;
 
-                var np1 = parent.AddBidirectionalNavigation(refrenceNav, parentNav);
-                var parentSet1 = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
-                var referenceSet1 = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
-                parentSet1.AddNavigationTarget(np1, referenceSet1);
+                    var np1 = parent.AddBidirectionalNavigation(refrenceNav, parentNav);
+                    var parentSet1 = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
+                    var referenceSet1 = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
+                    parentSet1.AddNavigationTarget(np1, referenceSet1);
+                }
+
             }
         }
         EdmComplexTypeReference BuildUDTType(string name)
