@@ -345,7 +345,10 @@ namespace maskx.OData.Sql
                 }, (par) => { par.AddWithValue("@Name", name); });
             }
             var etr = new EdmComplexTypeReference(t, true);
-            return new EdmCollectionTypeReference(new EdmCollectionType(etr));
+            var t1 = new EdmCollectionTypeReference(new EdmCollectionType(etr));
+            model.AddElement((t1.Definition as EdmCollectionType).ElementType.Definition as IEdmSchemaElement);
+            return t1;
+
         }
 
         void BuildRelation(EdmModel model)

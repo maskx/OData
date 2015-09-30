@@ -2,11 +2,9 @@
 using Microsoft.OData.Edm.Library;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Web.Http;
 using System.Web.OData;
 using System.Web.OData.Extensions;
 using System.Web.OData.Query;
@@ -47,7 +45,7 @@ namespace maskx.OData
             }
 
         }
-        public IHttpActionResult GetSimpleFunction()
+        public HttpResponseMessage GetSimpleFunction()
         {
             ODataPath path = Request.ODataProperties().Path;
 
@@ -84,15 +82,15 @@ namespace maskx.OData
             {
                 DynamicOData.BeforeExcute(ri);
                 if (!ri.Result)
-                    return Content(ri.StatusCode, ri.Message);
+                    return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
             var b = ds.InvokeFunction(seg.Function.Function, ri.Parameters, ri.QueryOptions);
             if (b is EdmComplexObjectCollection)
-                return Ok(b as EdmComplexObjectCollection);
+                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
             else
-                return Ok(b as EdmComplexObject);
+                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
         }
-        public IHttpActionResult PostComplexFunction()
+        public HttpResponseMessage PostComplexFunction()
         {
             ODataPath path = Request.ODataProperties().Path;
             UnboundFunctionPathSegment seg = path.Segments.FirstOrDefault() as UnboundFunctionPathSegment;
@@ -116,16 +114,17 @@ namespace maskx.OData
             };
             if (DynamicOData.BeforeExcute != null)
             {
-
                 DynamicOData.BeforeExcute(ri);
                 if (!ri.Result)
-                    return Content(ri.StatusCode, ri.Message);
+                    return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
             var b = ds.InvokeFunction(seg.Function.Function, ri.Parameters, ri.QueryOptions);
+
             if (b is EdmComplexObjectCollection)
-                return Ok(b as EdmComplexObjectCollection);
+                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
             else
-                return Ok(b as EdmComplexObject);
+                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
+
         }
         public HttpResponseMessage GetCount()
         {
