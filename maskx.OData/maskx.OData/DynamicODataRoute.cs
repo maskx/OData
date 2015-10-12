@@ -54,6 +54,8 @@ namespace maskx.OData
             {
                 return null;
             }
+            if (!request.Properties.ContainsKey(Constants.ODataDataSource))
+                return null;
 
             string dataSource = request.Properties[Constants.ODataDataSource] as string;
             string link = CombinePathSegments(RoutePrefix, dataSource);

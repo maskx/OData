@@ -11,11 +11,12 @@ namespace maskx.OData
 {
     public class RequestInfo
     {
-        public RequestInfo()
+        public RequestInfo(string dataSourceName)
         {
             this.Message = string.Empty;
             this.StatusCode = System.Net.HttpStatusCode.NotFound;
             this.Result = true;
+            this.DataSourceName = dataSourceName;
         }
         public string DataSourceName { get; internal set; }
         /// <summary>

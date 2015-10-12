@@ -5,6 +5,8 @@ VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "maskx.OData", "maskx.OData\maskx.OData.csproj", "{4CFD5C6B-EC59-473E-8378-C87C7E5400C8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{9ECA094F-945D-4871-9877-DDC068422CC5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{4CFD5C6B-EC59-473E-8378-C87C7E5400C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4CFD5C6B-EC59-473E-8378-C87C7E5400C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4CFD5C6B-EC59-473E-8378-C87C7E5400C8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9ECA094F-945D-4871-9877-DDC068422CC5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9ECA094F-945D-4871-9877-DDC068422CC5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9ECA094F-945D-4871-9877-DDC068422CC5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9ECA094F-945D-4871-9877-DDC068422CC5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

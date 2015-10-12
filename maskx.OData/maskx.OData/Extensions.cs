@@ -16,9 +16,9 @@ namespace maskx.OData
     public static class Extensions
     {
         public static ODataRoute MapDynamicODataServiceRoute(
-        this HttpRouteCollection routes,
-           string routeName,
-           string routePrefix)
+            this HttpRouteCollection routes,
+            string routeName,
+            string routePrefix)
         {
             IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
             routingConventions.Insert(0, new DynamicODataRoutingConvention());
@@ -30,6 +30,23 @@ namespace maskx.OData
                 new DefaultODataPathHandler(),
                 routingConventions,
                 batchHandler: null);
+        }
+        public static ODataRoute MapDynamicODataServiceRoute(
+           this HttpRouteCollection routes,
+           string routeName,
+           string routePrefix,
+           HttpServer httpServer)
+        {
+            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
+            routingConventions.Insert(0, new DynamicODataRoutingConvention());
+            return MapDynamicODataServiceRoute(
+                routes,
+                routeName,
+                routePrefix,
+                GetModelFuncFromRequest(),
+                new DefaultODataPathHandler(),
+                routingConventions,
+                batchHandler: new DynamicODataBatchHandler(httpServer));
         }
         private static ODataRoute MapDynamicODataServiceRoute(
             HttpRouteCollection routes,
@@ -48,7 +65,6 @@ namespace maskx.OData
                     routePrefix = routePrefix.Substring(0, routePrefix.Length - 1);
                 }
             }
-
             if (batchHandler != null)
             {
                 batchHandler.ODataRouteName = routeName;
@@ -57,15 +73,14 @@ namespace maskx.OData
                     : routePrefix + '/' + ODataRouteConstants.Batch;
                 routes.MapHttpBatchRoute(routeName + "Batch", batchTemplate, batchHandler);
             }
-
             DynamicODataPathRouteConstraint routeConstraint = new DynamicODataPathRouteConstraint(
-                pathHandler,
-                modelProvider,
-                routeName,
-                routingConventions);
+                  pathHandler,
+                  modelProvider,
+                  routeName,
+                  routingConventions);
             DynamicODataRoute odataRoute = new DynamicODataRoute(routePrefix, routeConstraint);
             routes.Add(routeName, odataRoute);
-
+           
             return odataRoute;
         }
         private static Func<HttpRequestMessage, IEdmModel> GetModelFuncFromRequest()

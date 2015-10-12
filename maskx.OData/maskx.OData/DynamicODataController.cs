@@ -23,9 +23,8 @@ namespace maskx.OData
             EdmEntityObjectCollection rtv = null;
             if (DynamicOData.BeforeExcute != null)
             {
-                var ri = new RequestInfo()
+                var ri = new RequestInfo(dsName)
                 {
-                    DataSourceName = dsName,
                     Method = MethodType.Get,
                     QueryOptions = options,
                     Target = options.Context.Path.Segments[0].ToString()
@@ -70,9 +69,8 @@ namespace maskx.OData
                 }
                 catch { }
             }
-            var ri = new RequestInfo()
+            var ri = new RequestInfo(dsName)
             {
-                DataSourceName = dsName,
                 Method = MethodType.Func,
                 Parameters = pars,
                 Target = seg.FunctionName,
@@ -104,9 +102,8 @@ namespace maskx.OData
 
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
-            var ri = new RequestInfo()
+            var ri = new RequestInfo(dsName)
             {
-                DataSourceName = dsName,
                 Method = MethodType.Func,
                 Parameters = jobj,
                 Target = seg.FunctionName,
@@ -133,9 +130,8 @@ namespace maskx.OData
             var options = BuildQueryOptions();
             if (DynamicOData.BeforeExcute != null)
             {
-                var ri = new RequestInfo()
+                var ri = new RequestInfo(dsName)
                 {
-                    DataSourceName = dsName,
                     Method = MethodType.Count,
                     QueryOptions = options,
                     Target = options.Context.Path.Segments[0].ToString(),
@@ -179,9 +175,8 @@ namespace maskx.OData
 
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
-            var ri = new RequestInfo()
+            var ri = new RequestInfo(dsName)
             {
-                DataSourceName = dsName,
                 Method = MethodType.FuncResultCount,
                 Parameters = pars,
                 Target = seg.FunctionName,
@@ -215,9 +210,8 @@ namespace maskx.OData
             var ds = DataSourceProvider.GetDataSource(dsName);
             if (DynamicOData.BeforeExcute != null)
             {
-                var ri = new RequestInfo()
+                var ri = new RequestInfo(dsName)
                 {
-                    DataSourceName = dsName,
                     Method = MethodType.Get,
                     QueryOptions = options,
                     Target = options.Context.Path.Segments[0].ToString()
@@ -244,9 +238,8 @@ namespace maskx.OData
             var ds = DataSourceProvider.GetDataSource(dsName);
             if (DynamicOData.BeforeExcute != null)
             {
-                var ri = new RequestInfo()
+                var ri = new RequestInfo(dsName)
                 {
-                    DataSourceName = dsName,
                     Method = MethodType.Create,
                     Target = (edmType as EdmEntityType).Name
                 };
@@ -272,9 +265,8 @@ namespace maskx.OData
             var ds = DataSourceProvider.GetDataSource(dsName);
             if (DynamicOData.BeforeExcute != null)
             {
-                var ri = new RequestInfo()
+                var ri = new RequestInfo(dsName)
                 {
-                    DataSourceName = dsName,
                     Method = MethodType.Delete,
                     Target = (edmType as EdmEntityType).Name
                 };
@@ -293,9 +285,8 @@ namespace maskx.OData
             var ds = DataSourceProvider.GetDataSource(dsName);
             if (DynamicOData.BeforeExcute != null)
             {
-                var ri = new RequestInfo()
+                var ri = new RequestInfo(dsName)
                 {
-                    DataSourceName = dsName,
                     Method = MethodType.Merge,
                     Target = (entity.GetEdmType().Definition as EdmEntityType).Name
                 };
@@ -312,9 +303,8 @@ namespace maskx.OData
             var ds = DataSourceProvider.GetDataSource(dsName);
             if (DynamicOData.BeforeExcute != null)
             {
-                var ri = new RequestInfo()
+                var ri = new RequestInfo(dsName)
                 {
-                    DataSourceName = dsName,
                     Method = MethodType.Replace,
                     Target = (entity.GetEdmType().Definition as EdmEntityType).Name
                 };
