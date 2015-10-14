@@ -46,7 +46,7 @@ namespace maskx.OData
                 GetModelFuncFromRequest(),
                 new DefaultODataPathHandler(),
                 routingConventions,
-                batchHandler: new DynamicODataBatchHandler(httpServer));
+                batchHandler: new DefaultODataBatchHandler(httpServer));
         }
         private static ODataRoute MapDynamicODataServiceRoute(
             HttpRouteCollection routes,
