@@ -36,6 +36,8 @@ namespace maskx.OData
             try
             {
                 rtv = ds.Get(options);
+                if (options.SelectExpand != null)
+                    Request.ODataProperties().SelectExpandClause = options.SelectExpand.SelectExpandClause;
                 return Request.CreateResponse(HttpStatusCode.OK, rtv);
             }
             catch (Exception err)

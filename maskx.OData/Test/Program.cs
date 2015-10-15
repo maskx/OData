@@ -1,16 +1,12 @@
-﻿using Owin;
+﻿using maskx.OData;
+using Microsoft.Owin.Hosting;
+using Newtonsoft.Json.Linq;
+using Owin;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web.Http;
-using maskx.OData;
 using System.Web.OData.Extensions;
-using Microsoft.Owin.Hosting;
-using System.Net.Http;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
 
 namespace Test
 {
@@ -25,10 +21,12 @@ namespace Test
             string tpl = baseUrl + "/odata/{0}/{1}";
             using (WebApp.Start(baseUrl, Configuration))
             {
-                //  SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
+                // SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
-                // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
-                BatchRequest();
+                // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUserRoles"), "Query AspNetUsers.").Wait();
+                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUserRoles?$expand=AspNetUsers"), "Query AspNetUsers.").Wait();
+
+                //BatchRequest();
             }
             Console.WriteLine("press any key to continue...");
             Console.Read();

@@ -1,17 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Web.OData;
-using System.Web.OData.Query;
+﻿using Microsoft.OData.Core.UriParser.Semantic;
 using Microsoft.OData.Edm;
 using Microsoft.OData.Edm.Library;
 using Newtonsoft.Json.Linq;
-using System.Data;
+using System;
+using System.Collections.Generic;
 using System.Configuration;
+using System.Data;
 using System.Data.SqlClient;
-using Microsoft.OData.Core.UriParser.Semantic;
+using System.Linq;
+using System.Web.OData;
+using System.Web.OData.Query;
+
 
 namespace maskx.OData.Sql
 {
@@ -378,6 +377,8 @@ namespace maskx.OData.Sql
                             var parentSet = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
                             var referenceSet = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
                             parentSet.AddNavigationTarget(np, referenceSet);
+
+
                         }
                         parentName = reader["ParentName"].ToString();
                         refrenceName = reader["RefrencedName"].ToString();
@@ -709,7 +710,7 @@ namespace maskx.OData.Sql
                         foreach (var expanded in expands)
                         {
                             List<string> condition = new List<string>();
-                            string w = "{0}={1}";
+                            string w = "[{0}]='{1}'";
                             foreach (NavigationPropertySegment item in expanded.PathToNavigationProperty)
                             {
                                 foreach (var p in item.NavigationProperty.ReferentialConstraint.PropertyPairs)
@@ -720,9 +721,7 @@ namespace maskx.OData.Sql
                                 }
                             }
                             var ss = Get(expanded.NavigationSource.Type as IEdmCollectionType, BuildSqlQueryCmd(expanded, string.Join(" and ", condition)));
-                            object obj;
-                            var dd = entity.TryGetPropertyValue(expanded.NavigationSource.Name, out obj);
-                            bool t = entity.TrySetPropertyValue(expanded.NavigationSource.Name, 1231);
+                            bool t = entity.TrySetPropertyValue(expanded.NavigationSource.Name, ss);
                         }
                     }
                     collection.Add(entity);
