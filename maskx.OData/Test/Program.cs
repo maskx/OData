@@ -23,8 +23,8 @@ namespace Test
             {
                 // SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
-                // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUserRoles"), "Query AspNetUsers.").Wait();
-                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUserRoles?$expand=AspNetUsers"), "Query AspNetUsers.").Wait();
+                // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
+                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
 
                 //BatchRequest();
             }

@@ -371,12 +371,16 @@ namespace maskx.OData.Sql
                     {
                         if (!string.IsNullOrEmpty(refrenceName))
                         {
-                            refrenceNav.PrincipalProperties = principalProperties;
-                            refrenceNav.DependentProperties = dependentProperties;
-                            var np = parent.AddBidirectionalNavigation(refrenceNav, parentNav);
+                            parentNav.PrincipalProperties = principalProperties;
+                            parentNav.DependentProperties = dependentProperties;
+                            //var np = parent.AddBidirectionalNavigation(refrenceNav, parentNav);
+                            //var parentSet = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
+                            //var referenceSet = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
+                            //parentSet.AddNavigationTarget(np, referenceSet);
+                            var np = refrence.AddBidirectionalNavigation(parentNav, refrenceNav);
                             var parentSet = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
                             var referenceSet = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
-                            parentSet.AddNavigationTarget(np, referenceSet);
+                            referenceSet.AddNavigationTarget(np, parentSet);
 
 
                         }
@@ -386,11 +390,12 @@ namespace maskx.OData.Sql
                         refrence = model.FindDeclaredType(string.Format("ns.{0}", refrenceName)) as EdmEntityType;
                         parentNav = new EdmNavigationPropertyInfo();
                         parentNav.Name = parentName;
-                        parentNav.TargetMultiplicity = EdmMultiplicity.ZeroOrOne;
+                        parentNav.TargetMultiplicity = EdmMultiplicity.Many;
+                        parentNav.Target = parent;
                         refrenceNav = new EdmNavigationPropertyInfo();
                         refrenceNav.Name = refrenceName;
                         refrenceNav.TargetMultiplicity = EdmMultiplicity.Many;
-                        refrenceNav.Target = refrence;
+                        //refrenceNav.Target = refrence;
                         principalProperties = new List<IEdmStructuralProperty>();
                         dependentProperties = new List<IEdmStructuralProperty>();
                     }
@@ -399,13 +404,18 @@ namespace maskx.OData.Sql
                 }, null, CommandType.Text);
                 if (refrenceNav != null)
                 {
-                    refrenceNav.PrincipalProperties = principalProperties;
-                    refrenceNav.DependentProperties = dependentProperties;
+                    parentNav.PrincipalProperties = principalProperties;
+                    parentNav.DependentProperties = dependentProperties;
 
-                    var np1 = parent.AddBidirectionalNavigation(refrenceNav, parentNav);
+                    //var np1 = parent.AddBidirectionalNavigation(refrenceNav, parentNav);
+                    //var parentSet1 = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
+                    //var referenceSet1 = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
+                    //parentSet1.AddNavigationTarget(np1, referenceSet1);
+
+                    var np1 = refrence.AddBidirectionalNavigation(parentNav, refrenceNav);
                     var parentSet1 = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
                     var referenceSet1 = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
-                    parentSet1.AddNavigationTarget(np1, referenceSet1);
+                    referenceSet1.AddNavigationTarget(np1, parentSet1);
                 }
 
             }
@@ -692,6 +702,16 @@ namespace maskx.OData.Sql
                 , fetch);
             return cmdtxt;
         }
+        string packCondition(EdmReferentialConstraintPropertyPair p, object v)
+        {
+            string w = "[{0}]={1}";
+            if (p.DependentProperty.Type.IsGuid()
+                || p.DependentProperty.Type.IsString()
+                || p.DependentProperty.Type.IsDateTimeOffset())
+                w = "[{0}]='{1}'";
+            return string.Format(w, p.PrincipalProperty.Name, v);
+        }
+
         EdmEntityObjectCollection Get(IEdmCollectionType edmType, string sqlCmd, List<ExpandedNavigationSelectItem> expands = null)
         {
             var entityType = edmType.ElementType.AsEntity();
@@ -710,14 +730,11 @@ namespace maskx.OData.Sql
                         foreach (var expanded in expands)
                         {
                             List<string> condition = new List<string>();
-                            string w = "[{0}]='{1}'";
                             foreach (NavigationPropertySegment item in expanded.PathToNavigationProperty)
                             {
                                 foreach (var p in item.NavigationProperty.ReferentialConstraint.PropertyPairs)
                                 {
-
-                                    var v = reader[p.PrincipalProperty.Name].ToString();
-                                    condition.Add(string.Format(w, p.DependentProperty.Name, v));
+                                    condition.Add(packCondition(p, reader[p.DependentProperty.Name]));
                                 }
                             }
                             var ss = Get(expanded.NavigationSource.Type as IEdmCollectionType, BuildSqlQueryCmd(expanded, string.Join(" and ", condition)));
