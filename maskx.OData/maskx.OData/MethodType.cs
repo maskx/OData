@@ -14,7 +14,6 @@ namespace maskx.OData
         Create,
         Get,
         Count,
-        Func,
-        FuncResultCount
+        Func
     }
 }

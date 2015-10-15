@@ -26,7 +26,7 @@ namespace Test
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
                 SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
 
-                //BatchRequest();
+                // BatchRequest();
             }
             Console.WriteLine("press any key to continue...");
             Console.Read();
@@ -40,8 +40,16 @@ namespace Test
                   "odata",
                   "odata",
                   server);
-            DynamicOData.AddDataSource(new maskx.OData.Sql.SQLDataSource(_DataSourceName, ConnectionString));
-            DynamicOData.BeforeExcute = (ri) => { ri.Parameters["UserId"] = new JValue(1); };
+            DynamicOData.AddDataSource(new maskx.OData.Sql.SQLDataSource(_DataSourceName,
+                ConnectionString, 
+                (action, target) => {
+                    Console.WriteLine("{0}\t{1}\t{2}","permissionCheck",action,target);
+                    return true; }));
+            DynamicOData.BeforeExcute = (ri) =>
+            {
+                ri.Parameters["UserId"] = new JValue(1);
+                Console.WriteLine("BeforeExcute:{0}", ri.Target);
+            };
             configuration.AddODataQueryFilter();
             builder.UseWebApi(configuration);
 
@@ -106,7 +114,7 @@ namespace Test
 
 
             //Create the request to the batch service
-            HttpRequestMessage batchRequest = new HttpRequestMessage(HttpMethod.Post, "http://localhost.fiddler:3333" + "/odata/$batch");
+            HttpRequestMessage batchRequest = new HttpRequestMessage(HttpMethod.Post, "http://localhost:3333" + "/odata/$batch");
             //Associate the content with the message
             batchRequest.Content = content;
 
@@ -114,8 +122,6 @@ namespace Test
             Console.WriteLine("\r\nResult:");
             Console.WriteLine(response.StatusCode.ToString());
             Console.WriteLine(response.Content.ReadAsStringAsync().Result);
-
-
         }
 
     }

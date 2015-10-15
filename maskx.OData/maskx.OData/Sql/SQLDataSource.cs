@@ -75,6 +75,14 @@ namespace maskx.OData.Sql
         /// </summary>
         public string TableValuedResultSetCommand { get; private set; }
         public string UserDefinedTableCommand { get; private set; }
+        /// <summary>
+        /// 检查数据库权限
+        /// 参数说明：
+        /// Action
+        /// Target
+        /// 检查结果：true-有权限；false-无权限
+        /// </summary>
+        public Func<MethodType, string, bool> PermissionCheck { get; private set; }
         string ConnectionString;
         List<string> TVFList = new List<string>();
         Dictionary<string, Dictionary<string, ParameterInfo>> ParameterInfos = new Dictionary<string, Dictionary<string, ParameterInfo>>();
@@ -87,6 +95,7 @@ namespace maskx.OData.Sql
 
         }
         public SQLDataSource(string name, string connectionString,
+            Func<MethodType, string, bool> permissionCheck = null,
             string modelCommand = "GetEdmModelInfo",
             string funcCommand = "GetEdmSPInfo",
             string tvfCommand = "GetEdmTVFInfo",
@@ -97,6 +106,7 @@ namespace maskx.OData.Sql
         {
             this.Name = name;
             this.ConnectionString = connectionString;
+            this.PermissionCheck = permissionCheck;
             _Model = new Lazy<EdmModel>(() =>
             {
                 ModelCommand = modelCommand;
@@ -715,6 +725,7 @@ namespace maskx.OData.Sql
         EdmEntityObjectCollection Get(IEdmCollectionType edmType, string sqlCmd, List<ExpandedNavigationSelectItem> expands = null)
         {
             var entityType = edmType.ElementType.AsEntity();
+           
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
@@ -932,6 +943,10 @@ namespace maskx.OData.Sql
         {
             var edmType = entity.GetEdmType();
             var table = (edmType.Definition as EdmEntityType).Name;
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Create, table))
+            {
+                throw new UnauthorizedAccessException();
+            }
             object rtv = null;
             string cmdTemplate = "insert into [{0}] ({1}) values ({2}) select SCOPE_IDENTITY() ";
             List<string> cols = new List<string>();
@@ -959,6 +974,10 @@ namespace maskx.OData.Sql
         public int Delete(string key, IEdmType elementType)
         {
             var entityType = elementType as EdmEntityType;
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Delete, entityType.Name))
+            {
+                throw new UnauthorizedAccessException();
+            }
             var keyDefine = entityType.DeclaredKey.First();
             int rtv = 0;
             using (DbAccess db = new DbAccess(this.ConnectionString))
@@ -976,6 +995,11 @@ namespace maskx.OData.Sql
         {
             var edmType = queryOptions.Context.Path.GetEdmType() as IEdmCollectionType;
             var entityType = (edmType as IEdmCollectionType).ElementType.AsEntity();
+            var table = (entityType.Definition as EdmEntityType).Name;
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Get, table))
+            {
+                throw new UnauthorizedAccessException();
+            }
             List<ExpandedNavigationSelectItem> expands = new List<ExpandedNavigationSelectItem>();
             if (queryOptions.SelectExpand != null)
             {
@@ -984,6 +1008,10 @@ namespace maskx.OData.Sql
                     var expande = item as ExpandedNavigationSelectItem;
                     if (expande == null)
                         continue;
+                    if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Get, expande.NavigationSource.Name))
+                    {
+                        throw new UnauthorizedAccessException();
+                    }
                     expands.Add(expande);
                 }
             }
@@ -994,6 +1022,10 @@ namespace maskx.OData.Sql
         {
             var cxt = queryOptions.Context;
             var entityType = cxt.ElementType as EdmEntityType;
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Get, entityType.Name))
+            {
+                throw new UnauthorizedAccessException();
+            }
             var keyDefine = entityType.DeclaredKey.First();
             string cmdSql = "select {0} from [{1}] where [{2}]=@{2}";
             var cmdTxt = string.Format(cmdSql
@@ -1019,6 +1051,13 @@ namespace maskx.OData.Sql
 
         public int GetCount(ODataQueryOptions queryOptions)
         {
+            var cxt = queryOptions.Context;
+            var entityType = cxt.ElementType as EdmEntityType;
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Count, entityType.Name))
+            {
+                throw new UnauthorizedAccessException();
+            }
+
             object rtv = null;
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
@@ -1033,6 +1072,10 @@ namespace maskx.OData.Sql
         {
             int count = 0;
             IEdmType edmType = func.ReturnType.Definition;
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Count, func.Name))
+            {
+                throw new UnauthorizedAccessException();
+            }
             if (TVFList.Contains(func.Name))
             {
                 var target = BuildTVFTarget(func, parameterValues);
@@ -1049,6 +1092,10 @@ namespace maskx.OData.Sql
 
         public IEdmObject InvokeFunction(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions = null)
         {
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Func, func.Name))
+            {
+                throw new UnauthorizedAccessException();
+            }
             if (TVFList.Contains(func.Name))
                 return InvokeTVF(func, parameterValues, queryOptions);
             IEdmType edmType = func.ReturnType.Definition;
@@ -1061,6 +1108,10 @@ namespace maskx.OData.Sql
         {
             string cmdTemplate = "update [{0}] set {1} where [{2}]=@{2} ";
             var entityType = entity.GetEdmType().Definition as EdmEntityType;
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Merge, entityType.Name))
+            {
+                throw new UnauthorizedAccessException();
+            }
             var keyDefine = entityType.DeclaredKey.First();
             List<string> cols = new List<string>();
             List<SqlParameter> sqlpars = new List<SqlParameter>();
@@ -1090,6 +1141,10 @@ namespace maskx.OData.Sql
         {
             string cmdTemplate = "update [{0}] set {1} where {2} ";
             var entityType = entity.GetEdmType().Definition as EdmEntityType;
+            if (this.PermissionCheck != null && !this.PermissionCheck(MethodType.Replace, entityType.Name))
+            {
+                throw new UnauthorizedAccessException();
+            }
             var keyName = entityType.DeclaredKey.First().Name;
             List<string> cols = new List<string>();
             List<string> pars = new List<string>();

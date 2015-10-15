@@ -40,6 +40,10 @@ namespace maskx.OData
                     Request.ODataProperties().SelectExpandClause = options.SelectExpand.SelectExpandClause;
                 return Request.CreateResponse(HttpStatusCode.OK, rtv);
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
             catch (Exception err)
             {
                 return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
@@ -84,11 +88,23 @@ namespace maskx.OData
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
-            var b = ds.InvokeFunction(seg.Function.Function, ri.Parameters, ri.QueryOptions);
-            if (b is EdmComplexObjectCollection)
-                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
-            else
-                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
+            try
+            {
+                var b = ds.InvokeFunction(seg.Function.Function, ri.Parameters, ri.QueryOptions);
+                if (b is EdmComplexObjectCollection)
+                    return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
+                else
+                    return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
+            }
+
         }
         public HttpResponseMessage PostComplexFunction()
         {
@@ -117,12 +133,24 @@ namespace maskx.OData
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
-            var b = ds.InvokeFunction(seg.Function.Function, ri.Parameters, ri.QueryOptions);
+            try
+            {
+                var b = ds.InvokeFunction(seg.Function.Function, ri.Parameters, ri.QueryOptions);
 
-            if (b is EdmComplexObjectCollection)
-                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
-            else
-                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
+                if (b is EdmComplexObjectCollection)
+                    return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
+                else
+                    return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
+            }
+
 
         }
         public HttpResponseMessage GetCount()
@@ -142,8 +170,20 @@ namespace maskx.OData
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
-            int count = ds.GetCount(BuildQueryOptions());
-            return Request.CreateResponse(HttpStatusCode.OK, count);
+            try
+            {
+                int count = ds.GetCount(BuildQueryOptions());
+                return Request.CreateResponse(HttpStatusCode.OK, count);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
+            }
+
         }
         public HttpResponseMessage GetFuncResultCount()
         {
@@ -179,7 +219,7 @@ namespace maskx.OData
             var ds = DataSourceProvider.GetDataSource(dsName);
             var ri = new RequestInfo(dsName)
             {
-                Method = MethodType.FuncResultCount,
+                Method = MethodType.Count,
                 Parameters = pars,
                 Target = seg.FunctionName,
                 QueryOptions = queryOptions
@@ -190,8 +230,20 @@ namespace maskx.OData
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message); ;
             }
-            var count = ds.GetFuncResultCount(seg.Function.Function, ri.Parameters, ri.QueryOptions);
-            return Request.CreateResponse(HttpStatusCode.OK, count);
+            try
+            {
+                var count = ds.GetFuncResultCount(seg.Function.Function, ri.Parameters, ri.QueryOptions);
+                return Request.CreateResponse(HttpStatusCode.OK, count);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
+            }
+
         }
         private ODataQueryOptions BuildQueryOptions()
         {
@@ -222,8 +274,20 @@ namespace maskx.OData
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
-            var b = ds.Get(key, options);
-            return Request.CreateResponse(HttpStatusCode.OK, b);
+            try
+            {
+                var b = ds.Get(key, options);
+                return Request.CreateResponse(HttpStatusCode.OK, b);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
+            }
+
         }
         public HttpResponseMessage Post(IEdmEntityObject entity)
         {
@@ -252,12 +316,17 @@ namespace maskx.OData
             try
             {
                 rtv = ds.Create(entity);
+                return Request.CreateResponse(HttpStatusCode.Created, rtv);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
             }
             catch (Exception err)
             {
                 return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
             }
-            return Request.CreateResponse(HttpStatusCode.Created, rtv);
+
         }
         public HttpResponseMessage Delete(string key)
         {
@@ -276,8 +345,20 @@ namespace maskx.OData
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
-            var count = ds.Delete(key, edmType);
-            return Request.CreateResponse(HttpStatusCode.OK, count);
+            try
+            {
+                var count = ds.Delete(key, edmType);
+                return Request.CreateResponse(HttpStatusCode.OK, count);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
+            }
+
         }
         public HttpResponseMessage Patch(string key, IEdmEntityObject entity)
         {
@@ -296,8 +377,20 @@ namespace maskx.OData
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
-            var count = ds.Merge(key, entity);
-            return Request.CreateResponse(HttpStatusCode.OK, count);
+            try
+            {
+                var count = ds.Merge(key, entity);
+                return Request.CreateResponse(HttpStatusCode.OK, count);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
+            }
+
         }
         public HttpResponseMessage Put(string key, IEdmEntityObject entity)
         {
@@ -314,8 +407,20 @@ namespace maskx.OData
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
-            var count = ds.Replace(key, entity);
-            return Request.CreateResponse(HttpStatusCode.OK, count);
+            try
+            {
+                var count = ds.Replace(key, entity);
+                return Request.CreateResponse(HttpStatusCode.OK, count);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
+            }
+
         }
     }
 }
