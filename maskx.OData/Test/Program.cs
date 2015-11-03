@@ -12,7 +12,7 @@ namespace Test
 {
     class Program
     {
-        static string baseUrl = "http://localhost:3333";
+        static string baseUrl = "http://localhost:3338";
         static string ConnectionString = "Data Source=.;Initial Catalog=Group;Integrated Security=True";
         static string _DataSourceName = "db";
         static void Main(string[] args)
@@ -24,8 +24,8 @@ namespace Test
                 // SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
-                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
-
+                // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
+                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=contains(UserName,'min')"), "Query AspNetUsers.").Wait();
                 // BatchRequest();
             }
             Console.WriteLine("press any key to continue...");

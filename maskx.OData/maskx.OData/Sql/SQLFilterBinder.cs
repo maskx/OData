@@ -149,7 +149,7 @@ namespace maskx.OData.Sql
                 case "concat":
                     return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0]) + "," + Bind(arguments[1]) + ")";
                 case "contains":
-                    return Bind(arguments[0]) + " like " + Bind(arguments[1]);
+                    return string.Format("{0} like '%{1}%'", Bind(arguments[0]) , (arguments[1] as ConstantNode).Value);
                 case "length":
                 case "trim":
                 case "year":
