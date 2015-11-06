@@ -13,7 +13,7 @@ namespace Test
     class Program
     {
         static string baseUrl = "http://localhost:3338";
-        static string ConnectionString = "Data Source=.;Initial Catalog=Group;Integrated Security=True";
+        static string ConnectionString = "Data Source=.;Initial Catalog=IdentityManager;Integrated Security=True";
         static string _DataSourceName = "db";
         static void Main(string[] args)
         {
@@ -22,10 +22,11 @@ namespace Test
             using (WebApp.Start(baseUrl, Configuration))
             {
                 // SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
-                // SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
+               //  SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
-                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=contains(UserName,'min')"), "Query AspNetUsers.").Wait();
+                // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=contains(UserName,'min')"), "Query AspNetUsers.").Wait();
+                SendQuery(string.Format(tpl, _DataSourceName, "GetChildrenOrgs(UserId='1',ParentCode='A0000')"), "GetChildrenOrgs").Wait();
                 // BatchRequest();
             }
             Console.WriteLine("press any key to continue...");
@@ -41,10 +42,12 @@ namespace Test
                   "odata",
                   server);
             DynamicOData.AddDataSource(new maskx.OData.Sql.SQLDataSource(_DataSourceName,
-                ConnectionString, 
-                (action, target) => {
-                    Console.WriteLine("{0}\t{1}\t{2}","permissionCheck",action,target);
-                    return true; }));
+                ConnectionString,
+                (action, target) =>
+                {
+                    Console.WriteLine("{0}\t{1}\t{2}", "permissionCheck", action, target);
+                    return true;
+                }));
             DynamicOData.BeforeExcute = (ri) =>
             {
                 ri.Parameters["UserId"] = new JValue(1);

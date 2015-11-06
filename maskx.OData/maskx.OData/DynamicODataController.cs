@@ -116,8 +116,16 @@ namespace maskx.OData
                 : edmType;
             ODataQueryContext queryContext = new ODataQueryContext(Request.ODataProperties().Model, elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
-            var jobj = Request.Content.ReadAsAsync<JObject>().Result;
-
+            JObject jobj = null;
+            if (Request.Content.IsFormData())
+            {
+                jobj = Request.Content.ReadAsAsync<JObject>().Result;
+            }
+            else
+            {
+                string s = Request.Content.ReadAsStringAsync().Result;
+                jobj = JObject.Parse(s);
+            }
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
             var ri = new RequestInfo(dsName)
