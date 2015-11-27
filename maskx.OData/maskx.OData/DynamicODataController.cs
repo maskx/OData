@@ -124,7 +124,8 @@ namespace maskx.OData
             else
             {
                 string s = Request.Content.ReadAsStringAsync().Result;
-                jobj = JObject.Parse(s);
+                if (!string.IsNullOrEmpty(s))
+                    jobj = JObject.Parse(s);
             }
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);

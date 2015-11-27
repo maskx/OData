@@ -13,7 +13,7 @@ namespace Test
     class Program
     {
         static string baseUrl = "http://localhost:3338";
-        static string ConnectionString = "Data Source=.;Initial Catalog=Group;Integrated Security=True";
+        static string ConnectionString = "Data Source=.;Initial Catalog=JHBY;Integrated Security=True";
         static string _DataSourceName = "db";
         static void Main(string[] args)
         {
@@ -22,12 +22,13 @@ namespace Test
             using (WebApp.Start(baseUrl, Configuration))
             {
                 // SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
-               //  SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
+                //  SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
-              //   SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
-                 SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=contains(UserName,'min')&$top=1&$skip=1&$orderby=UserName desc"), "Query AspNetUsers.").Wait();
-               // SendQuery(string.Format(tpl, _DataSourceName, "GetChildrenOrgs(UserId='1',ParentCode='A0000')"), "GetChildrenOrgs").Wait();
+                //   SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
+                //  SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=contains(UserName,'min')&$top=1&$skip=1&$orderby=UserName desc"), "Query AspNetUsers.").Wait();
+                // SendQuery(string.Format(tpl, _DataSourceName, "GetChildrenOrgs(UserId='1',ParentCode='A0000')"), "GetChildrenOrgs").Wait();
                 // BatchRequest();
+                InvokeSP_Post();
             }
             Console.WriteLine("press any key to continue...");
             Console.Read();
@@ -50,7 +51,7 @@ namespace Test
                 }));
             DynamicOData.BeforeExcute = (ri) =>
             {
-                ri.Parameters["UserId"] = new JValue(1);
+                ri.Parameters["UserId"] = new JValue(3003);
                 Console.WriteLine("BeforeExcute:{0}", ri.Target);
             };
             configuration.AddODataQueryFilter();
@@ -126,6 +127,19 @@ namespace Test
             Console.WriteLine(response.StatusCode.ToString());
             Console.WriteLine(response.Content.ReadAsStringAsync().Result);
         }
+        static void InvokeSP_Post()
+        {
+            string tpl = baseUrl + "/odata/{0}/{1}";
+            var query = string.Format(tpl, _DataSourceName, "GetUserInfo()");
+            Console.WriteLine(query);
+            HttpClient client = new HttpClient();
+            //  HttpResponseMessage response = client.PostAsJsonAsync(serviceUrl + query, new { UserId = 1, ProductId = 2, tb = new { col1=3} }).Result;
 
+            HttpResponseMessage response = client.PostAsJsonAsync(query, new { UserId = 2 }).Result;
+
+            Console.WriteLine("\r\nResult:");
+            Console.WriteLine(response.StatusCode.ToString());
+            Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+        }
     }
 }
