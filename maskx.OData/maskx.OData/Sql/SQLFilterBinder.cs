@@ -149,7 +149,7 @@ namespace maskx.OData.Sql
                 case "concat":
                     return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0]) + "," + Bind(arguments[1]) + ")";
                 case "contains":
-                    return string.Format("{0} like '%{1}%'", Bind(arguments[0]) , (arguments[1] as ConstantNode).Value);
+                    return string.Format("{0} like '%{1}%'", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
                 case "length":
                 case "trim":
                 case "year":
@@ -202,17 +202,15 @@ namespace maskx.OData.Sql
         private string BindConstantNode(ConstantNode constantNode)
         {
             if (constantNode.Value is string)
-            {
                 return String.Format("'{0}'", constantNode.Value);
-            }
-            if (constantNode.Value is DateTimeOffset)
-            {
+            else if (constantNode.Value is DateTimeOffset)
                 return String.Format("'{0}'", ((DateTimeOffset)constantNode.Value).ToString("yyyy-MM-dd HH:mm:ss"));
-            }
-            if (constantNode.Value is Guid)
+            else if (constantNode.Value is Guid)
                 return String.Format("'{0}'", constantNode.Value);
-            if (constantNode.Value is bool)
+            else if (constantNode.Value is bool)
                 return (bool)constantNode.Value ? "1" : "0";
+            else if (constantNode.Value == null)
+                return "null";
             return constantNode.Value.ToString();
         }
 
@@ -220,6 +218,12 @@ namespace maskx.OData.Sql
         {
             var left = Bind(binaryOperatorNode.Left);
             var right = Bind(binaryOperatorNode.Right);
+            if (binaryOperatorNode.OperatorKind == BinaryOperatorKind.Equal
+                && right == "null")
+                return "(" + left + " is null)";
+            if (binaryOperatorNode.OperatorKind == BinaryOperatorKind.NotEqual
+                && right == "null")
+                return "(" + left + " is not null)";
             return "(" + left + " " + ToString(binaryOperatorNode.OperatorKind) + " " + right + ")";
         }
 
