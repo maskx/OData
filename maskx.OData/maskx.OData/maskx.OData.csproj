@@ -85,10 +85,12 @@
     <Compile Include="RequestInfo.cs" />
     <Compile Include="Sql\DbAccess.cs" />
     <Compile Include="Sql\Extensions.cs" />
+    <Compile Include="Sql\ParameterInfo.cs" />
     <Compile Include="Sql\SQL2008.cs" />
     <Compile Include="Sql\SQLDataSource.cs" />
     <Compile Include="Sql\SQLFilterBinder.cs" />
     <Compile Include="Sql\SQLOrderByBinder.cs" />
+    <Compile Include="Sql\Utility.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

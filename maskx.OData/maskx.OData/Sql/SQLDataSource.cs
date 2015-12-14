@@ -16,39 +16,6 @@ namespace maskx.OData.Sql
 {
     public class SQLDataSource : IDataSource
     {
-        #region inner type define
-        class ParameterInfo
-        {
-            public string Name
-            {
-                get;
-                set;
-            }
-            public int Length
-            {
-                get;
-                set;
-            }
-            public SqlDbType SqlDbType
-            {
-                get;
-                set;
-            }
-            public Type Type
-            {
-                get
-                {
-                    return SqlType2CsharpType(SqlDbType);
-                }
-            }
-            public ParameterDirection Direction
-            {
-                get;
-                set;
-            }
-        }
-        #endregion
-
         #region members
         /// <summary>
         /// Get table/view schema
@@ -153,7 +120,7 @@ namespace maskx.OData.Sql
                         else
                             t = edmSet.EntityType() as EdmEntityType;
                     }
-                    var et = DBType2EdmType(reader["DATA_TYPE"].ToString());
+                    var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                     if (et.HasValue)
                     {
                         string col = reader["COLUMN_NAME"].ToString();
@@ -194,7 +161,7 @@ namespace maskx.OData.Sql
             {
                 db.ExecuteReader(StoredProcedureResultSetCommand, (reader) =>
                  {
-                     var et = DBType2EdmType(reader["DATA_TYPE"].ToString());
+                     var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                      if (et.HasValue)
                      {
                          string col = reader["COLUMN_NAME"].ToString();
@@ -248,7 +215,7 @@ namespace maskx.OData.Sql
                     }
                     if (!reader.IsDBNull("DATA_TYPE"))
                     {
-                        var et = DBType2EdmType(reader["DATA_TYPE"].ToString());
+                        var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                         if (et.HasValue)
                         {
                             var t = EdmCoreModel.Instance.GetPrimitive(et.Value, true);
@@ -257,7 +224,7 @@ namespace maskx.OData.Sql
                             parsDic.Add(pname, new ParameterInfo()
                             {
                                 Name = pname,
-                                SqlDbType = SqlTypeString2SqlType(reader["DATA_TYPE"].ToString()),
+                                SqlDbType = Utility.SqlTypeString2SqlType(reader["DATA_TYPE"].ToString()),
                                 Length = reader.IsDBNull("MAX_LENGTH") ? 0 : (int)reader["MAX_LENGTH"],
                                 Direction = reader["PARAMETER_MODE"].ToString() == "INOUT" ? ParameterDirection.Input : ParameterDirection.Output
                             });
@@ -321,7 +288,7 @@ namespace maskx.OData.Sql
                     }
                     if (!reader.IsDBNull("DATA_TYPE"))
                     {
-                        var et = DBType2EdmType(reader["DATA_TYPE"].ToString());
+                        var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                         if (et.HasValue)
                         {
                             var t = EdmCoreModel.Instance.GetPrimitive(et.Value, true);
@@ -345,7 +312,7 @@ namespace maskx.OData.Sql
             {
                 db.ExecuteReader(this.TableValuedResultSetCommand, (reader) =>
                 {
-                    var et = DBType2EdmType(reader["DATA_TYPE"].ToString());
+                    var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                     if (et.HasValue)
                     {
                         string col = reader["COLUMN_NAME"].ToString();
@@ -440,7 +407,7 @@ namespace maskx.OData.Sql
             {
                 db.ExecuteReader(this.UserDefinedTableCommand, (reader) =>
                 {
-                    var et = DBType2EdmType(reader["ColumnType"].ToString());
+                    var et = Utility.DBType2EdmType(reader["ColumnType"].ToString());
                     if (et.HasValue)
                     {
                         cNmae = reader["name"].ToString();
@@ -453,201 +420,6 @@ namespace maskx.OData.Sql
                 });
             }
             return new EdmComplexTypeReference(root, true);
-        }
-        static Type SqlType2CsharpType(SqlDbType sqlType)
-        {
-            switch (sqlType)
-            {
-                case SqlDbType.BigInt:
-                    return typeof(Int64);
-                case SqlDbType.Binary:
-                    return typeof(Object);
-                case SqlDbType.Bit:
-                    return typeof(Boolean);
-                case SqlDbType.Char:
-                    return typeof(String);
-                case SqlDbType.DateTime:
-                    return typeof(DateTime);
-                case SqlDbType.Decimal:
-                    return typeof(Decimal);
-                case SqlDbType.Float:
-                    return typeof(Double);
-                case SqlDbType.Image:
-                    return typeof(Object);
-                case SqlDbType.Int:
-                    return typeof(Int32);
-                case SqlDbType.Money:
-                    return typeof(Decimal);
-                case SqlDbType.NChar:
-                    return typeof(String);
-                case SqlDbType.NText:
-                    return typeof(String);
-                case SqlDbType.NVarChar:
-                    return typeof(String);
-                case SqlDbType.Real:
-                    return typeof(Single);
-                case SqlDbType.SmallDateTime:
-                    return typeof(DateTime);
-                case SqlDbType.SmallInt:
-                    return typeof(Int16);
-                case SqlDbType.SmallMoney:
-                    return typeof(Decimal);
-                case SqlDbType.Text:
-                    return typeof(String);
-                case SqlDbType.Timestamp:
-                    return typeof(Object);
-                case SqlDbType.TinyInt:
-                    return typeof(Byte);
-                case SqlDbType.Udt:
-                    return typeof(Object);
-                case SqlDbType.UniqueIdentifier:
-                    return typeof(Guid);
-                case SqlDbType.VarBinary:
-                    return typeof(Object);
-                case SqlDbType.VarChar:
-                    return typeof(String);
-                case SqlDbType.Variant:
-                    return typeof(Object);
-                case SqlDbType.Xml:
-                    return typeof(Object);
-                default:
-                    return null;
-            }
-        }
-        static EdmPrimitiveTypeKind? DBType2EdmType(string dbType)
-        {
-            switch (dbType.ToLower())
-            {
-                case "uniqueidentifier":
-                    return EdmPrimitiveTypeKind.Guid;
-                case "xml":
-                case "varchar":
-                case "nvarchar":
-                case "text":
-                case "ntext":
-                    return EdmPrimitiveTypeKind.String;
-                case "char":
-                case "nchar":
-                    return EdmPrimitiveTypeKind.String;
-                case "money":
-                case "smallmoney":
-                case "numeric":
-                case "decimal":
-                    return EdmPrimitiveTypeKind.Decimal;
-                case "smallint":
-                    return EdmPrimitiveTypeKind.Int16;
-                case "int":
-                    return EdmPrimitiveTypeKind.Int32;
-                case "bigint":
-                    return EdmPrimitiveTypeKind.Int64;
-                case "tinyint":
-                    return EdmPrimitiveTypeKind.Byte;
-                case "float":
-                    return EdmPrimitiveTypeKind.Double;
-                case "real":
-                    return EdmPrimitiveTypeKind.Single;
-                case "bit":
-                    return EdmPrimitiveTypeKind.Boolean;
-                case "date":
-                case "timestamp":
-                case "time":
-                case "smalldatetime":
-                case "datetime":
-                    return EdmPrimitiveTypeKind.DateTimeOffset;
-                case "image":
-                case "varbinary":
-                case "binary":
-                    return EdmPrimitiveTypeKind.Byte;
-                default:
-                    return null;
-            }
-        }
-        static SqlDbType SqlTypeString2SqlType(string sqlTypeString)
-        {
-            SqlDbType dbType = SqlDbType.Variant;//默认为Object
-
-            switch (sqlTypeString)
-            {
-                case "int":
-                    dbType = SqlDbType.Int;
-                    break;
-                case "varchar":
-                    dbType = SqlDbType.VarChar;
-                    break;
-                case "bit":
-                    dbType = SqlDbType.Bit;
-                    break;
-                case "datetime":
-                    dbType = SqlDbType.DateTime;
-                    break;
-                case "decimal":
-                    dbType = SqlDbType.Decimal;
-                    break;
-                case "float":
-                    dbType = SqlDbType.Float;
-                    break;
-                case "image":
-                    dbType = SqlDbType.Image;
-                    break;
-                case "money":
-                    dbType = SqlDbType.Money;
-                    break;
-                case "ntext":
-                    dbType = SqlDbType.NText;
-                    break;
-                case "nvarchar":
-                    dbType = SqlDbType.NVarChar;
-                    break;
-                case "smalldatetime":
-                    dbType = SqlDbType.SmallDateTime;
-                    break;
-                case "smallint":
-                    dbType = SqlDbType.SmallInt;
-                    break;
-                case "text":
-                    dbType = SqlDbType.Text;
-                    break;
-                case "bigint":
-                    dbType = SqlDbType.BigInt;
-                    break;
-                case "binary":
-                    dbType = SqlDbType.Binary;
-                    break;
-                case "char":
-                    dbType = SqlDbType.Char;
-                    break;
-                case "nchar":
-                    dbType = SqlDbType.NChar;
-                    break;
-                case "numeric":
-                    dbType = SqlDbType.Decimal;
-                    break;
-                case "real":
-                    dbType = SqlDbType.Real;
-                    break;
-                case "smallmoney":
-                    dbType = SqlDbType.SmallMoney;
-                    break;
-                case "sql_variant":
-                    dbType = SqlDbType.Variant;
-                    break;
-                case "timestamp":
-                    dbType = SqlDbType.Timestamp;
-                    break;
-                case "tinyint":
-                    dbType = SqlDbType.TinyInt;
-                    break;
-                case "uniqueidentifier":
-                    dbType = SqlDbType.UniqueIdentifier;
-                    break;
-                case "varbinary":
-                    dbType = SqlDbType.VarBinary;
-                    break;
-                case "xml":
-                    dbType = SqlDbType.Xml;
-                    break;
-            }
-            return dbType;
         }
 
         static string BuildSqlQueryCmd(ODataQueryOptions options, string target = "")
@@ -725,7 +497,7 @@ namespace maskx.OData.Sql
         EdmEntityObjectCollection Get(IEdmCollectionType edmType, string sqlCmd, List<ExpandedNavigationSelectItem> expands = null)
         {
             var entityType = edmType.ElementType.AsEntity();
-           
+
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {

@@ -150,7 +150,17 @@ namespace maskx.OData.Sql
                     return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0]) + "," + Bind(arguments[1]) + ")";
                 case "contains":
                     return string.Format("{0} like '%{1}%'", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
+                case "endswith":
+                    return string.Format("{0} like '%{1}", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
+                case "startswith":
+                    return string.Format("{0} like '{1}%", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
                 case "length":
+                    return string.Format("len({0})", Bind(arguments[0]));
+                case "indexof":
+                    return string.Format("charindex('{0}',{1}", (arguments[1] as ConstantNode).Value, Bind(arguments[0]));
+                case "substring":
+                case "tolower":
+                case "toupper":
                 case "trim":
                 case "year":
                 case "years":

@@ -11,9 +11,9 @@ using System.Web.OData.Query;
 
 namespace maskx.OData.Sql
 {
-    static class Extensions
+    public static class Extensions
     {
-        internal static bool IsDBNull(this DbDataReader reader, string columnName)
+        public static bool IsDBNull(this DbDataReader reader, string columnName)
         {
             return Convert.IsDBNull(reader[columnName]);
         }
@@ -85,14 +85,14 @@ namespace maskx.OData.Sql
         {
             if (options.Filter == null)
                 return string.Empty;
-            string where= SQLFilterBinder.BindFilterQueryOption(options.Filter.FilterClause, options.Context.Model);
+            string where = SQLFilterBinder.BindFilterQueryOption(options.Filter.FilterClause, options.Context.Model);
             if (!string.IsNullOrEmpty(where))
                 where = " where " + where;
             return where;
         }
-        internal static string ParseWhere(this ExpandedNavigationSelectItem expanded,string condition, EdmModel model)
+        internal static string ParseWhere(this ExpandedNavigationSelectItem expanded, string condition, EdmModel model)
         {
-            string where = SQLFilterBinder.BindFilterQueryOption(expanded.FilterOption,model);
+            string where = SQLFilterBinder.BindFilterQueryOption(expanded.FilterOption, model);
             if (string.IsNullOrEmpty(where))
             {
                 where = condition;

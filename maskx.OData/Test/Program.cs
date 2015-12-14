@@ -25,7 +25,7 @@ namespace Test
                 //  SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
                 //   SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
-                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=contains(UserName,'min') or UserName eq null&$top=1&$skip=1&$orderby=UserName desc"), "Query AspNetUsers.").Wait();
+                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=(endswith(UserName,'min')) or (UserName eq null)&$top=1&$skip=1&$orderby=UserName desc"), "Query AspNetUsers.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "GetChildrenOrgs(UserId='1',ParentCode='A0000')"), "GetChildrenOrgs").Wait();
                 // BatchRequest();
                 // InvokeSP_Post();
