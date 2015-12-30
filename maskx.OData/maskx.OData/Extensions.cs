@@ -45,6 +45,23 @@ namespace maskx.OData
                 routingConventions,
                 batchHandler: new DynamicODataBatchHandler(httpServer));
         }
+        public static ODataRoute MapDynamicODataServiceRoute(
+          this HttpRouteCollection routes,
+          string routeName,
+          string routePrefix,
+         HttpConfiguration config)
+        {
+            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
+            routingConventions.Insert(0, new DynamicODataRoutingConvention());
+            return MapDynamicODataServiceRoute(
+                routes,
+                routeName,
+                routePrefix,
+                GetModelFuncFromRequest(),
+                new DefaultODataPathHandler(),
+                routingConventions,
+                batchHandler: new DynamicODataBatchHandler(new ODataHttpServer(config)));
+        }
         private static ODataRoute MapDynamicODataServiceRoute(
             HttpRouteCollection routes,
             string routeName,
@@ -77,7 +94,7 @@ namespace maskx.OData
                   routingConventions);
             DynamicODataRoute odataRoute = new DynamicODataRoute(routePrefix, routeConstraint);
             routes.Add(routeName, odataRoute);
-           
+
             return odataRoute;
         }
         private static Func<HttpRequestMessage, IEdmModel> GetModelFuncFromRequest()

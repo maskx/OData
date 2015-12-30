@@ -81,6 +81,7 @@
     <Compile Include="Extensions.cs" />
     <Compile Include="IDataSource.cs" />
     <Compile Include="MethodType.cs" />
+    <Compile Include="ODataHttpServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RequestInfo.cs" />
     <Compile Include="Sql\DbAccess.cs" />
