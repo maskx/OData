@@ -297,7 +297,8 @@ namespace maskx.OData.Sql
                         }
                     }
                 });
-                AddTableValueFunction(currentName, model, pars);
+                if (!string.IsNullOrEmpty(currentName))
+                    AddTableValueFunction(currentName, model, pars);
             }
         }
 
@@ -536,7 +537,12 @@ namespace maskx.OData.Sql
             List<string> ps = new List<string>();
             foreach (var p in func.Parameters)
             {
-                ps.Add(parameterValues[p.Name].ToString());
+                if (p.Type.IsGuid()
+                || p.Type.IsString()
+                || p.Type.IsDateTimeOffset())
+                    ps.Add(string.Format("'{0}'", parameterValues[p.Name].ToString()));
+                else
+                    ps.Add(parameterValues[p.Name].ToString());
             }
             return string.Format(templete, func.Name, string.Join(",", ps));
         }
