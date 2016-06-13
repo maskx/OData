@@ -18,7 +18,7 @@ namespace maskx.OData.Sql
         }
         static string BindOrderByClause(OrderByClause orderByClause)
         {
-            string orderby = string.Format("{0} {1}", Bind(orderByClause.Expression), GetDirection(orderByClause.Direction));
+            string orderby = string.Format("[{0}] {1}", Bind(orderByClause.Expression), GetDirection(orderByClause.Direction));
             if (orderByClause.ThenBy != null)
                 orderby += "," + BindOrderByClause(orderByClause.ThenBy);
             return orderby;
