@@ -161,10 +161,14 @@ namespace maskx.OData.Sql
             {
                 db.ExecuteReader(StoredProcedureResultSetCommand, (reader) =>
                  {
+                     if (reader.IsDBNull("DATA_TYPE"))
+                         return;
                      var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                      if (et.HasValue)
                      {
                          string col = reader["COLUMN_NAME"].ToString();
+                         if (string.IsNullOrEmpty(col))
+                             throw new Exception(string.Format("{0} has wrong return type. see [exec GetEdmSPResultSet '{0}'] ", spName));
                          t.AddStructuralProperty(col, et.Value, true);
                      }
                  }, (par) => { par.AddWithValue("@Name", spName); });
