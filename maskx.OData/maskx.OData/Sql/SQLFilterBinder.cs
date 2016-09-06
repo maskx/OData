@@ -151,9 +151,9 @@ namespace maskx.OData.Sql
                 case "contains":
                     return string.Format("{0} like '%{1}%'", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
                 case "endswith":
-                    return string.Format("{0} like '%{1}", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
+                    return string.Format("{0} like '%{1}'", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
                 case "startswith":
-                    return string.Format("{0} like '{1}%", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
+                    return string.Format("{0} like '{1}%'", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
                 case "length":
                     return string.Format("len({0})", Bind(arguments[0]));
                 case "indexof":
