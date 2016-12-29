@@ -316,7 +316,7 @@ namespace maskx.OData
                 var ri = new RequestInfo(dsName)
                 {
                     Method = MethodType.Create,
-                    Target = (edmType as EdmEntityType).Name
+                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name
                 };
                 DynamicOData.BeforeExcute(ri);
                 if (!ri.Result)
