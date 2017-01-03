@@ -120,7 +120,7 @@ namespace maskx.OData.Sql
                         else
                             t = edmSet.EntityType() as EdmEntityType;
                     }
-                    var et =Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
+                    var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                     if (et.HasValue)
                     {
                         string col = reader["COLUMN_NAME"].ToString();
@@ -160,14 +160,14 @@ namespace maskx.OData.Sql
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(StoredProcedureResultSetCommand, (reader) =>
-                 {
-                     var et =Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
-                     if (et.HasValue)
-                     {
-                         string col = reader["COLUMN_NAME"].ToString();
-                         t.AddStructuralProperty(col, et.Value, true);
-                     }
-                 }, (par) => { par.AddWithValue("@Name", spName); });
+                {
+                    var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
+                    if (et.HasValue)
+                    {
+                        string col = reader["COLUMN_NAME"].ToString();
+                        t.AddStructuralProperty(col, et.Value, true);
+                    }
+                }, (par) => { par.AddWithValue("@Name", spName); });
             }
             var etr = new EdmComplexTypeReference(t, true);
             return new EdmCollectionTypeReference(new EdmCollectionType(etr));
@@ -215,7 +215,7 @@ namespace maskx.OData.Sql
                     }
                     if (!reader.IsDBNull("DATA_TYPE"))
                     {
-                        var et =Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
+                        var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                         if (et.HasValue)
                         {
                             var t = EdmCoreModel.Instance.GetPrimitive(et.Value, true);
@@ -224,7 +224,7 @@ namespace maskx.OData.Sql
                             parsDic.Add(pname, new ParameterInfo()
                             {
                                 Name = pname,
-                                SqlDbType =Utility.SqlTypeString2SqlType(reader["DATA_TYPE"].ToString()),
+                                SqlDbType = Utility.SqlTypeString2SqlType(reader["DATA_TYPE"].ToString()),
                                 Length = reader.IsDBNull("MAX_LENGTH") ? 0 : (int)reader["MAX_LENGTH"],
                                 Direction = reader["PARAMETER_MODE"].ToString() == "INOUT" ? ParameterDirection.Input : ParameterDirection.Output
                             });
@@ -288,7 +288,7 @@ namespace maskx.OData.Sql
                     }
                     if (!reader.IsDBNull("DATA_TYPE"))
                     {
-                        var et =Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
+                        var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                         if (et.HasValue)
                         {
                             var t = EdmCoreModel.Instance.GetPrimitive(et.Value, true);
@@ -312,7 +312,7 @@ namespace maskx.OData.Sql
             {
                 db.ExecuteReader(this.TableValuedResultSetCommand, (reader) =>
                 {
-                    var et =Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
+                    var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                     if (et.HasValue)
                     {
                         string col = reader["COLUMN_NAME"].ToString();
@@ -407,7 +407,7 @@ namespace maskx.OData.Sql
             {
                 db.ExecuteReader(this.UserDefinedTableCommand, (reader) =>
                 {
-                    var et =Utility.DBType2EdmType(reader["ColumnType"].ToString());
+                    var et = Utility.DBType2EdmType(reader["ColumnType"].ToString());
                     if (et.HasValue)
                     {
                         cNmae = reader["name"].ToString();
@@ -428,7 +428,7 @@ namespace maskx.OData.Sql
             string table = target;
             if (string.IsNullOrEmpty(target))
                 table = string.Format("[{0}]", cxt.Path.Segments[0].ToString());
- 
+
             string cmdTxt = string.Empty;
             if (options.Count == null && options.Top != null)
             {
@@ -492,7 +492,7 @@ where t.rowIndex between {4} and {5}"
                        , table
                        , expanded.ParseWhere(condition, this.Model)
                        , expanded.ParseOrderBy());
-               
+
             }
             else
             {
@@ -502,7 +502,7 @@ where t.rowIndex between {4} and {5}"
                          , expanded.ParseWhere(condition, this.Model)
                          , expanded.ParseOrderBy());
             }
-           
+
             return cmdTxt;
         }
         string packCondition(EdmReferentialConstraintPropertyPair p, object v)
@@ -659,29 +659,29 @@ where t.rowIndex between {4} and {5}"
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 var par = db.ExecuteReader(func.Name, (reader) =>
-                  {
-                      EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
-                      for (int i = 0; i < reader.FieldCount; i++)
-                      {
-                          reader.SetEntityPropertyValue(i, entity);
-                      }
-                      collection.Add(entity);
-                  }, (pars) =>
-                  {
-                      SetParameter(func, parameterValues, edmType, pars);
-                      var d1 = this.ParameterInfos[func.Name];
-                      foreach (var p in (edmType as IEdmComplexType).Properties())
-                      {
-                          if (p.Name == "$Results")
-                              continue;
-                          var pp = d1[p.Name];
-                          pars.Add(new SqlParameter(p.Name, pp.SqlDbType, pp.Length)
-                          {
-                              Direction = ParameterDirection.Output
-                          });
-                      }
+                {
+                    EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        reader.SetEntityPropertyValue(i, entity);
+                    }
+                    collection.Add(entity);
+                }, (pars) =>
+                {
+                    SetParameter(func, parameterValues, edmType, pars);
+                    var d1 = this.ParameterInfos[func.Name];
+                    foreach (var p in (edmType as IEdmComplexType).Properties())
+                    {
+                        if (p.Name == "$Results")
+                            continue;
+                        var pp = d1[p.Name];
+                        pars.Add(new SqlParameter(p.Name, pp.SqlDbType, pp.Length)
+                        {
+                            Direction = ParameterDirection.Output
+                        });
+                    }
 
-                  });
+                });
                 foreach (var outp in (edmType as IEdmComplexType).Properties())
                 {
                     if (outp.Name == "$Results")
@@ -946,9 +946,12 @@ where t.rowIndex between {4} and {5}"
 
             foreach (var p in entityType.Properties())
             {
+                if (p.PropertyKind == EdmPropertyKind.Navigation) continue;
                 entity.TryGetPropertyValue(p.Name, out v);
-                cols.Add(string.Format("[{0}]", p.Name));
-                pars.Add("@" + p.Name);
+                if (keyName == p.Name)
+                    pars.Add(string.Format("[{0}]=@{0}", p.Name));
+                else
+                    cols.Add(string.Format("[{0}]=@{0}", p.Name));
                 sqlpars.Add(new SqlParameter("@" + p.Name, v == null ? DBNull.Value : v));
             }
             int rtv;

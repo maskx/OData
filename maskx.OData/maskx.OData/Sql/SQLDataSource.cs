@@ -160,18 +160,18 @@ namespace maskx.OData.Sql
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(StoredProcedureResultSetCommand, (reader) =>
-                 {
-                     if (reader.IsDBNull("DATA_TYPE"))
-                         return;
-                     var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
-                     if (et.HasValue)
-                     {
-                         string col = reader["COLUMN_NAME"].ToString();
-                         if (string.IsNullOrEmpty(col))
-                             throw new Exception(string.Format("{0} has wrong return type. see [exec GetEdmSPResultSet '{0}'] ", spName));
-                         t.AddStructuralProperty(col, et.Value, true);
-                     }
-                 }, (par) => { par.AddWithValue("@Name", spName); });
+                {
+                    if (reader.IsDBNull("DATA_TYPE"))
+                        return;
+                    var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
+                    if (et.HasValue)
+                    {
+                        string col = reader["COLUMN_NAME"].ToString();
+                        if (string.IsNullOrEmpty(col))
+                            throw new Exception(string.Format("{0} has wrong return type. see [exec GetEdmSPResultSet '{0}'] ", spName));
+                        t.AddStructuralProperty(col, et.Value, true);
+                    }
+                }, (par) => { par.AddWithValue("@Name", spName); });
             }
             var etr = new EdmComplexTypeReference(t, true);
             return new EdmCollectionTypeReference(new EdmCollectionType(etr));
@@ -648,29 +648,29 @@ namespace maskx.OData.Sql
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 var par = db.ExecuteReader(func.Name, (reader) =>
-                  {
-                      EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
-                      for (int i = 0; i < reader.FieldCount; i++)
-                      {
-                          reader.SetEntityPropertyValue(i, entity);
-                      }
-                      collection.Add(entity);
-                  }, (pars) =>
-                  {
-                      SetParameter(func, parameterValues, edmType, pars);
-                      var d1 = this.ParameterInfos[func.Name];
-                      foreach (var p in (edmType as IEdmComplexType).Properties())
-                      {
-                          if (p.Name == "$Results")
-                              continue;
-                          var pp = d1[p.Name];
-                          pars.Add(new SqlParameter(p.Name, pp.SqlDbType, pp.Length)
-                          {
-                              Direction = ParameterDirection.Output
-                          });
-                      }
+                {
+                    EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        reader.SetEntityPropertyValue(i, entity);
+                    }
+                    collection.Add(entity);
+                }, (pars) =>
+                {
+                    SetParameter(func, parameterValues, edmType, pars);
+                    var d1 = this.ParameterInfos[func.Name];
+                    foreach (var p in (edmType as IEdmComplexType).Properties())
+                    {
+                        if (p.Name == "$Results")
+                            continue;
+                        var pp = d1[p.Name];
+                        pars.Add(new SqlParameter(p.Name, pp.SqlDbType, pp.Length)
+                        {
+                            Direction = ParameterDirection.Output
+                        });
+                    }
 
-                  });
+                });
                 foreach (var outp in (edmType as IEdmComplexType).Properties())
                 {
                     if (outp.Name == "$Results")
@@ -935,9 +935,12 @@ namespace maskx.OData.Sql
 
             foreach (var p in entityType.Properties())
             {
+                if (p.PropertyKind == EdmPropertyKind.Navigation) continue;
                 entity.TryGetPropertyValue(p.Name, out v);
-                cols.Add(string.Format("[{0}]", p.Name));
-                pars.Add("@" + p.Name);
+                if (keyName == p.Name)
+                    pars.Add(string.Format("[{0}]=@{0}", p.Name));
+                else
+                    cols.Add(string.Format("[{0}]=@{0}", p.Name));
                 sqlpars.Add(new SqlParameter("@" + p.Name, v == null ? DBNull.Value : v));
             }
             int rtv;

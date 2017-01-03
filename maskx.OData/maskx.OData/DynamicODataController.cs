@@ -341,6 +341,7 @@ namespace maskx.OData
         {
             var path = Request.ODataProperties().Path;
             var edmType = path.Segments[0].GetEdmType(path.EdmType);
+            var edmEntityType = ((EdmCollectionType)edmType).ElementType.Definition;
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
             if (DynamicOData.BeforeExcute != null)
@@ -348,7 +349,7 @@ namespace maskx.OData
                 var ri = new RequestInfo(dsName)
                 {
                     Method = MethodType.Delete,
-                    Target = (edmType as EdmEntityType).Name
+                    Target = (edmEntityType as EdmEntityType).Name
                 };
                 DynamicOData.BeforeExcute(ri);
                 if (!ri.Result)
@@ -356,7 +357,7 @@ namespace maskx.OData
             }
             try
             {
-                var count = ds.Delete(key, edmType);
+                var count = ds.Delete(key, edmEntityType);
                 return Request.CreateResponse(HttpStatusCode.OK, count);
             }
             catch (UnauthorizedAccessException ex)
