@@ -20,6 +20,7 @@ namespace Test
             string tpl = baseUrl + "/odata/{0}/{1}";
             using (WebApp.Start(baseUrl, Configuration))
             {
+                PostEntity();
                 // SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
                 //  SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
@@ -27,7 +28,7 @@ namespace Test
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=(endswith(UserName,'min')) or (UserName eq null)&$top=1&$skip=1&$orderby=UserName desc"), "Query AspNetUsers.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "GetChildrenOrgs(UserId='1',ParentCode='A0000')"), "GetChildrenOrgs").Wait();
                 // BatchRequest();
-                InvokeSP_Post();
+                //InvokeSP_Post();
                 //SendQuery(string.Format(tpl, _DataSourceName, "tvfTest(branchNo=1,culture='A0000')"), "tvfTest").Wait();
 
                 //  SendQuery(string.Format(tpl, _DataSourceName, "vContact"), "Query AspNetUsers.").Wait();
@@ -49,7 +50,7 @@ namespace Test
 
             DynamicOData.BeforeExcute = (ri) =>
             {
-                if (ri.QueryOptions.SelectExpand != null)
+                if (ri.QueryOptions!=null && ri.QueryOptions.SelectExpand != null)
                 {
                     //有子表关联查询，要看子表的权限
                 }
@@ -77,7 +78,8 @@ namespace Test
             string tpl = baseUrl + "/odata/{0}/{1}";
             var query = string.Format(tpl, _DataSourceName, "Area");
             HttpClient client = new HttpClient();
-            HttpResponseMessage response = client.PostAsJsonAsync(query, new { Name = "test", ParentId = 0 }).Result;
+            HttpResponseMessage response = client.PostAsJsonAsync(query,
+                new { Name = "test", ParentAreaId = 9999, CodePart = "" }).Result;
 
             Console.WriteLine("\r\nResult:");
             Console.WriteLine(response.StatusCode.ToString());
