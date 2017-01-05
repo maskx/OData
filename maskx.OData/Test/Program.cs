@@ -27,7 +27,7 @@ namespace Test
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=(endswith(UserName,'min')) or (UserName eq null)&$top=1&$skip=1&$orderby=UserName desc"), "Query AspNetUsers.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "GetChildrenOrgs(UserId='1',ParentCode='A0000')"), "GetChildrenOrgs").Wait();
                 // BatchRequest();
-                 InvokeSP_Post();
+                InvokeSP_Post();
                 //SendQuery(string.Format(tpl, _DataSourceName, "tvfTest(branchNo=1,culture='A0000')"), "tvfTest").Wait();
 
                 //  SendQuery(string.Format(tpl, _DataSourceName, "vContact"), "Query AspNetUsers.").Wait();
@@ -46,18 +46,16 @@ namespace Test
                   "odata",
                   server);
             DynamicOData.AddDataSource(new maskx.OData.Sql.SQLDataSource(_DataSourceName));
-            //DynamicOData.AddDataSource(new maskx.OData.Sql.SQL2008(_DataSourceName,
-            //    ConnectionString,
-            //    (action, target) =>
-            //    {
-            //        Console.WriteLine("{0}\t{1}\t{2}", "permissionCheck", action, target);
-            //        return true;
-            //    }));
-            //DynamicOData.BeforeExcute = (ri) =>
-            //{
-            //    ri.Parameters["UserId"] = new JValue(3003);
-            //    Console.WriteLine("BeforeExcute:{0}", ri.Target);
-            //};
+
+            DynamicOData.BeforeExcute = (ri) =>
+            {
+                if (ri.QueryOptions.SelectExpand != null)
+                {
+                    //有子表关联查询，要看子表的权限
+                }
+                ri.Parameters["UserId"] = new JValue(3003);
+                Console.WriteLine("BeforeExcute:{0}", ri.Target);
+            };
             configuration.AddODataQueryFilter();
             builder.UseWebApi(configuration);
 

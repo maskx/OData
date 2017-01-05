@@ -316,7 +316,8 @@ namespace maskx.OData
                 var ri = new RequestInfo(dsName)
                 {
                     Method = MethodType.Create,
-                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name
+                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
+                    Entity = entity
                 };
                 DynamicOData.BeforeExcute(ri);
                 if (!ri.Result)
@@ -381,7 +382,8 @@ namespace maskx.OData
                 var ri = new RequestInfo(dsName)
                 {
                     Method = MethodType.Merge,
-                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name
+                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
+                    Entity = entity
                 };
                 DynamicOData.BeforeExcute(ri);
                 if (!ri.Result)
@@ -411,7 +413,8 @@ namespace maskx.OData
                 var ri = new RequestInfo(dsName)
                 {
                     Method = MethodType.Replace,
-                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name
+                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
+                    Entity = entity
                 };
                 DynamicOData.BeforeExcute(ri);
                 if (!ri.Result)

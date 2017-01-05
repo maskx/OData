@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web.OData;
 using System.Web.OData.Query;
 
 namespace maskx.OData
@@ -45,6 +46,7 @@ namespace maskx.OData
             }
         }
         public ODataQueryOptions QueryOptions { get; internal set; }
+        public IEdmEntityObject Entity { get; internal set; }
         /// <summary>
         /// continue execute function when true
         /// when false,break 

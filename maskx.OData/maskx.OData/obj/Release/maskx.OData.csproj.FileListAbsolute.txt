@@ -42,6 +42,5 @@ C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\bin\Release\ko\Microsof
 C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\bin\Release\ru\Microsoft.Spatial.resources.dll
 C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\bin\Release\zh-Hans\Microsoft.Spatial.resources.dll
 C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\bin\Release\zh-Hant\Microsoft.Spatial.resources.dll
-C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\obj\Release\maskx.OData.csprojResolveAssemblyReference.cache
 C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\obj\Release\maskx.OData.dll
 C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\obj\Release\maskx.OData.pdb
