@@ -14,10 +14,17 @@ In your database execute the database initial script, the initial script locate 
 [https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012](https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012)
 
 those scripts will create the stored procedures query the database schema for build web API
+~ Note
+those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you should use the scripts in v2008 folder, it will need you do more configure.
+~
 
 ##WebApi setup
-### create a web api project
-### install odata nuget package through [https://www.nuget.org/packages/maskx.OData/](https://www.nuget.org/packages/maskx.OData/)
+### Create a web API project
+
+### Install odata nuget package 
+
+[https://www.nuget.org/packages/maskx.OData/](https://www.nuget.org/packages/maskx.OData/)
+
 ### Configure the controller
 ```CSharp
  configuration.Routes.MapDynamicODataServiceRoute("odata","odata");
@@ -25,7 +32,7 @@ those scripts will create the stored procedures query the database schema for bu
 ```
 the "db" is database connection string key in web.config
 
-### configure database connection string in web.config
+### Configure database connection string in web.config
 ```CSharp
    <connectionStrings>
     <add name="db" connectionString="Data Source=.;Initial Catalog=<your database>;Integrated Security=True" />
@@ -86,7 +93,7 @@ $.ajax({
     type:'DELETE'
   }).done(function (data) {alert(data) });
 ```
-###  View
+##  View
   for view, only can query support 
 ```javascript
     $.get('odata/db/<view>').done(function (data) {alert(data.value) });
@@ -107,10 +114,29 @@ $.ajax({
 ```
 
 ## Security
+SQLDataSource has a BeforeExcute property, you can judge user's permission in there
+
+```csharp
+DataSourceProvider.AddDataSource(new maskx.OData.Sql.SQLDataSource(<DataSourceName>)
+            {
+                BeforeExcute = (ri) =>
+                {
+                    if (ri.QueryOptions != null && ri.QueryOptions.SelectExpand != null)
+                    {
+                        
+                    }
+                    Console.WriteLine("BeforeExcute:{0}", ri.Target);
+                }
+            });
+```
+
 
 ## Audit
+SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user's permission in there
 
 ## More
+###SQL Server 2008
+
 
 #License
 The MIT License (MIT) - See file 'LICENSE' in this project
