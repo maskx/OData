@@ -20,15 +20,15 @@ namespace Test
             string tpl = baseUrl + "/odata/{0}/{1}";
             using (WebApp.Start(baseUrl, Configuration))
             {
-                PostEntity();
+                //PostEntity();
                 // SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
                 //  SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
-                //   SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
+                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=(endswith(UserName,'min')) or (UserName eq null)&$top=1&$skip=1&$orderby=UserName desc"), "Query AspNetUsers.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "GetChildrenOrgs(UserId='1',ParentCode='A0000')"), "GetChildrenOrgs").Wait();
                 // BatchRequest();
-                //InvokeSP_Post();
+                // InvokeSP_Post();
                 //SendQuery(string.Format(tpl, _DataSourceName, "tvfTest(branchNo=1,culture='A0000')"), "tvfTest").Wait();
 
                 //  SendQuery(string.Format(tpl, _DataSourceName, "vContact"), "Query AspNetUsers.").Wait();
@@ -46,17 +46,19 @@ namespace Test
                   "odata",
                   "odata",
                   server);
-            DynamicOData.AddDataSource(new maskx.OData.Sql.SQLDataSource(_DataSourceName));
-
-            DynamicOData.BeforeExcute = (ri) =>
+            DataSourceProvider.AddDataSource(new maskx.OData.Sql.SQLDataSource(_DataSourceName)
             {
-                if (ri.QueryOptions!=null && ri.QueryOptions.SelectExpand != null)
+                BeforeExcute = (ri) =>
                 {
-                    //有子表关联查询，要看子表的权限
+                    if (ri.QueryOptions != null && ri.QueryOptions.SelectExpand != null)
+                    {
+                        //有子表关联查询，要看子表的权限
+                    }
+                    ri.Parameters["UserId"] = new JValue(1);
+                    Console.WriteLine("BeforeExcute:{0}", ri.Target);
                 }
-                ri.Parameters["UserId"] = new JValue(3003);
-                Console.WriteLine("BeforeExcute:{0}", ri.Target);
-            };
+            });
+
             configuration.AddODataQueryFilter();
             builder.UseWebApi(configuration);
 

@@ -1,13 +1,10 @@
 ﻿using Microsoft.OData.Edm;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace maskx.OData
 {
-    internal class DataSourceProvider
+    public class DataSourceProvider
     {
         static Dictionary<string, IDataSource> DataSource = new Dictionary<string, IDataSource>();
         public static void AddDataSource(IDataSource dataSource)

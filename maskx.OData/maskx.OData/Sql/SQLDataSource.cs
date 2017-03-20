@@ -21,14 +21,15 @@ namespace maskx.OData.Sql
         /// Get table/view schema
         /// </summary>
         public string ModelCommand { get; private set; }
+
         /// <summary>
         /// get stored procedures schema.(stored procedure name and parameters)
         /// </summary>
-        public string FuncCommand { get; private set; }
+        public string ActionCommand { get; private set; }
         /// <summary>
         /// get the table-valued function information
         /// </summary>
-        public string TableValuedCommand { get; private set; }
+        public string FunctionCommand { get; private set; }
         /// <summary>
         /// get the relations of table/view
         /// </summary>
@@ -43,7 +44,7 @@ namespace maskx.OData.Sql
         public string TableValuedResultSetCommand { get; private set; }
         public string UserDefinedTableCommand { get; private set; }
         string ConnectionString;
-        List<string> TVFList = new List<string>();
+
         Dictionary<string, Dictionary<string, ParameterInfo>> ParameterInfos = new Dictionary<string, Dictionary<string, ParameterInfo>>();
         #endregion
 
@@ -55,8 +56,8 @@ namespace maskx.OData.Sql
         }
         public SQLDataSource(string name, string connectionString,
             string modelCommand = "GetEdmModelInfo",
-            string funcCommand = "GetEdmSPInfo",
-            string tvfCommand = "GetEdmTVFInfo",
+            string actionCommand = "GetEdmSPInfo",
+            string functionCommand = "GetEdmTVFInfo",
             string relationCommand = "GetEdmRelationship",
             string storedProcedureResultSetCommand = "GetEdmSPResultSet",
             string userDefinedTableCommand = "GetEdmUDTInfo",
@@ -64,29 +65,29 @@ namespace maskx.OData.Sql
         {
             this.Name = name;
             this.ConnectionString = connectionString;
-            _Model = new Lazy<EdmModel>(() =>
-            {
-                ModelCommand = modelCommand;
-                FuncCommand = funcCommand;
-                TableValuedCommand = tvfCommand;
-                RelationCommand = relationCommand;
-                StoredProcedureResultSetCommand = storedProcedureResultSetCommand;
-                UserDefinedTableCommand = userDefinedTableCommand;
-                TableValuedResultSetCommand = tableValuedResultSetCommand;
-                var model = new EdmModel();
-                var container = new EdmEntityContainer("ns", "container");
-                model.AddElement(container);
-                AddEdmElement(model);
-                AddEdmFunction(model);
-                AddTableValueFunction(model);
-                BuildRelation(model);
-                return model;
-
-            });
+            ModelCommand = modelCommand;
+            ActionCommand = actionCommand;
+            FunctionCommand = functionCommand;
+            RelationCommand = relationCommand;
+            StoredProcedureResultSetCommand = storedProcedureResultSetCommand;
+            UserDefinedTableCommand = userDefinedTableCommand;
+            TableValuedResultSetCommand = tableValuedResultSetCommand;
         }
+
         #endregion
 
         #region method
+        private EdmModel BuildEdmModel()
+        {
+            var model = new EdmModel();
+            var container = new EdmEntityContainer("ns", "container");
+            model.AddElement(container);
+            AddEdmElement(model);
+            AddEdmAction(model);
+            AddTableValueFunction(model);
+            BuildRelation(model);
+            return model;
+        }
         void AddEdmElement(EdmModel model)
         {
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
@@ -129,15 +130,13 @@ namespace maskx.OData.Sql
             var t = BuildSPReturnType(spName, model);
             model.AddElement((t.Definition as EdmCollectionType).ElementType.Definition as IEdmSchemaElement);
 
-            if (outPars.Count == 0)
-                return t;
             EdmComplexType root = new EdmComplexType("ns", spRtvTypeName);
             model.AddElement(root);
             foreach (var item in outPars)
             {
                 root.AddStructuralProperty(item.Key, item.Value);
             }
-            root.AddStructuralProperty("$Results", t);
+            root.AddStructuralProperty("$result", t);
             return new EdmComplexTypeReference(root, true);
         }
         IEdmTypeReference BuildSPReturnType(string spName, EdmModel model)
@@ -166,26 +165,12 @@ namespace maskx.OData.Sql
             var etr = new EdmComplexTypeReference(t, true);
             return new EdmCollectionTypeReference(new EdmCollectionType(etr));
         }
-
-        void AddEdmFunction(string spName,
-            EdmModel model,
-            Dictionary<string, IEdmTypeReference> pars,
-            Dictionary<string, IEdmTypeReference> outPars)
-        {
-            IEdmTypeReference t = BuildSPReturnType(spName, model, outPars);
-            EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
-            var func = new EdmFunction(container.Namespace, spName, t, false, null, false);
-            foreach (var item in pars)
-            {
-                func.AddParameter(item.Key, item.Value);
-            }
-            container.AddFunctionImport(func.Name, func, null, true);
-            model.AddElement(func);
-            pars.Clear();
-            outPars.Clear();
-        }
-
-        void AddEdmFunction(EdmModel model)
+        /// <summary>
+        /// TODO: should move sp to action,and leave TableValueFunction in function 
+        /// Actions can have side-effects. For example, Actions can be used to modify data or to invoke custom operations
+        /// </summary>
+        /// <param name="model"></param>
+        void AddEdmAction(EdmModel model)
         {
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
             string currentName = string.Empty;
@@ -194,14 +179,14 @@ namespace maskx.OData.Sql
             Dictionary<string, ParameterInfo> parsDic = new Dictionary<string, ParameterInfo>();
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(FuncCommand, (reader) =>
+                db.ExecuteReader(ActionCommand, (reader) =>
                 {
                     string spName = reader["SPECIFIC_NAME"].ToString();
                     if (currentName != spName)
                     {
                         if (!string.IsNullOrEmpty(currentName))
                         {
-                            AddEdmFunction(currentName, model, pars, outPars);
+                            AddEdmAction(currentName, model, pars, outPars);
                             this.ParameterInfos.Add(currentName, parsDic);
                             parsDic = new Dictionary<string, ParameterInfo>();
                         }
@@ -240,11 +225,30 @@ namespace maskx.OData.Sql
                         }
                     }
                 });
-                AddEdmFunction(currentName, model, pars, outPars);
+                AddEdmAction(currentName, model, pars, outPars);
                 this.ParameterInfos.Add(currentName, parsDic);
                 parsDic = new Dictionary<string, ParameterInfo>();
             }
         }
+        void AddEdmAction(string spName,
+           EdmModel model,
+           Dictionary<string, IEdmTypeReference> pars,
+           Dictionary<string, IEdmTypeReference> outPars)
+        {
+            IEdmTypeReference t = BuildSPReturnType(spName, model, outPars);
+            EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
+            var action = new EdmAction(container.Namespace, spName, t, false, null);
+            foreach (var item in pars)
+            {
+                action.AddParameter(item.Key, item.Value);
+            }
+            model.AddElement(action);
+            container.AddActionImport(action.Name, action, null);
+
+            pars.Clear();
+            outPars.Clear();
+        }
+
 
         void AddTableValueFunction(string name, EdmModel model, Dictionary<string, IEdmTypeReference> pars)
         {
@@ -257,9 +261,12 @@ namespace maskx.OData.Sql
             }
             container.AddFunctionImport(func.Name, func, null, true);
             model.AddElement(func);
-            TVFList.Add(func.Name);
             pars.Clear();
         }
+        /// <summary>
+        /// Functions MUST NOT have side-effects. Functions can be invoked from a URL that addresses a resource or within an expression to a $filter or $orderby system query option.
+        /// </summary>
+        /// <param name="model"></param>
         void AddTableValueFunction(EdmModel model)
         {
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
@@ -269,7 +276,7 @@ namespace maskx.OData.Sql
 
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(this.TableValuedCommand, (reader) =>
+                db.ExecuteReader(this.FunctionCommand, (reader) =>
                 {
                     funcName = reader["SPECIFIC_NAME"].ToString();
                     if (currentName != funcName)
@@ -417,7 +424,7 @@ namespace maskx.OData.Sql
             return new EdmComplexTypeReference(root, true);
         }
 
-        static string BuildSqlQueryCmd(ODataQueryOptions options, string target = "")
+        internal virtual string BuildSqlQueryCmd(ODataQueryOptions options, string target = "")
         {
             var cxt = options.Context;
             string table = target;
@@ -449,7 +456,7 @@ namespace maskx.OData.Sql
                 , fetch);
             return cmdtxt;
         }
-        string BuildSqlQueryCmd(ExpandedNavigationSelectItem expanded, string condition)
+        internal virtual string BuildSqlQueryCmd(ExpandedNavigationSelectItem expanded, string condition)
         {
             string table = string.Format("[{0}]", expanded.NavigationSource.Name);
             string cmdSql = "select {0} {1} from {2} {3} {4} {5} {6}";
@@ -479,16 +486,6 @@ namespace maskx.OData.Sql
                 , fetch);
             return cmdtxt;
         }
-        string packCondition(EdmReferentialConstraintPropertyPair p, object v)
-        {
-            string w = "[{0}]={1}";
-            if (p.DependentProperty.Type.IsGuid()
-                || p.DependentProperty.Type.IsString()
-                || p.DependentProperty.Type.IsDateTimeOffset())
-                w = "[{0}]='{1}'";
-            return string.Format(w, p.PrincipalProperty.Name, v);
-        }
-
         EdmEntityObjectCollection Get(IEdmCollectionType edmType, string sqlCmd, List<ExpandedNavigationSelectItem> expands = null)
         {
             var entityType = edmType.ElementType.AsEntity();
@@ -512,7 +509,7 @@ namespace maskx.OData.Sql
                             {
                                 foreach (var p in item.NavigationProperty.ReferentialConstraint.PropertyPairs)
                                 {
-                                    condition.Add(packCondition(p, reader[p.DependentProperty.Name]));
+                                    condition.Add(p.packCondition(reader[p.DependentProperty.Name]));
                                 }
                             }
                             var ss = Get(expanded.NavigationSource.Type as IEdmCollectionType, BuildSqlQueryCmd(expanded, string.Join(" and ", condition)));
@@ -540,13 +537,14 @@ namespace maskx.OData.Sql
             }
             return string.Format(templete, func.Name, string.Join(",", ps));
         }
-        static void SetParameter(IEdmFunction func, JObject parameterValues, IEdmType edmType, SqlParameterCollection pars)
+        void SetParameter(IEdmAction action, JObject parameterValues, SqlParameterCollection pars)
         {
             if (parameterValues == null)
                 return;
             JToken token = null;
             Type colType = null;
-            foreach (var p in func.Parameters)
+            IEdmComplexType edmType = action.ReturnType.Definition as IEdmComplexType;
+            foreach (var p in action.Parameters)
             {
                 if (parameterValues.TryGetValue(p.Name, out token))
                 {
@@ -588,9 +586,10 @@ namespace maskx.OData.Sql
             }
             if (edmType.TypeKind == EdmTypeKind.Entity)
             {
+                var d1 = this.ParameterInfos[action.Name];
                 foreach (var outp in (edmType as EdmEntityType).Properties())
                 {
-                    if (outp.Name == "$Results")
+                    if (outp.Name == "$result")
                         continue;
                     if (pars.Contains(outp.Name))
                     {
@@ -598,110 +597,36 @@ namespace maskx.OData.Sql
                     }
                     else
                     {
-                        pars.AddWithValue(outp.Name, DBNull.Value);
-                    }
-                }
-            }
-        }
-        IEdmObject InvokeFuncCollection(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions = null)
-        {
-            IEdmType edmType = func.ReturnType.Definition;
-            IEdmType elementType = (edmType as IEdmCollectionType).ElementType.Definition;
-            EdmComplexObjectCollection collection = new EdmComplexObjectCollection(new EdmCollectionTypeReference(edmType as IEdmCollectionType));
-            using (DbAccess db = new DbAccess(this.ConnectionString))
-            {
-                db.ExecuteReader(func.Name, (reader) =>
-                {
-                    EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
-                    for (int i = 0; i < reader.FieldCount; i++)
-                    {
-                        reader.SetEntityPropertyValue(i, entity);
-                    }
-                    collection.Add(entity);
-                }, (pars) =>
-                {
-                    SetParameter(func, parameterValues, edmType, pars);
-                });
-            }
-            return collection;
-        }
-        IEdmObject InvokeFuncComplex(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions = null)
-        {
-            IEdmType edmType = func.ReturnType.Definition;
-            IEdmType elementType = null;
-            var rtv = new EdmComplexObject(edmType as IEdmComplexType);
-            object obj;
-            rtv.TryGetPropertyValue("$Results", out obj);
-            EdmComplexObjectCollection collection = obj as EdmComplexObjectCollection;
-            var colltype = (edmType as IEdmComplexType).FindProperty("$Results").Type.Definition;
-            elementType = (colltype as IEdmCollectionType).ElementType.Definition;
-            using (DbAccess db = new DbAccess(this.ConnectionString))
-            {
-                var par = db.ExecuteReader(func.Name, (reader) =>
-                {
-                    EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
-                    for (int i = 0; i < reader.FieldCount; i++)
-                    {
-                        reader.SetEntityPropertyValue(i, entity);
-                    }
-                    collection.Add(entity);
-                }, (pars) =>
-                {
-                    SetParameter(func, parameterValues, edmType, pars);
-                    var d1 = this.ParameterInfos[func.Name];
-                    foreach (var p in (edmType as IEdmComplexType).Properties())
-                    {
-                        if (p.Name == "$Results")
-                            continue;
-                        var pp = d1[p.Name];
-                        pars.Add(new SqlParameter(p.Name, pp.SqlDbType, pp.Length)
+                        var pp = d1[outp.Name];
+                        pars.Add(new SqlParameter(outp.Name, pp.SqlDbType, pp.Length)
                         {
                             Direction = ParameterDirection.Output
                         });
                     }
-
-                });
-                foreach (var outp in (edmType as IEdmComplexType).Properties())
-                {
-                    if (outp.Name == "$Results")
-                        continue;
-                    var v = par[outp.Name].Value;
-                    if (DBNull.Value != v)
-                        rtv.TrySetPropertyValue(outp.Name, v);
                 }
             }
-            return rtv;
         }
-        IEdmObject InvokeTVF(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions = null)
-        {
-            IEdmType edmType = func.ReturnType.Definition;
-            IEdmType elementType = (edmType as IEdmCollectionType).ElementType.Definition;
-            EdmComplexObjectCollection collection = new EdmComplexObjectCollection(new EdmCollectionTypeReference(edmType as IEdmCollectionType));
-            var target = BuildTVFTarget(func, parameterValues);
-            var cmd = BuildSqlQueryCmd(queryOptions, target);
-            using (DbAccess db = new DbAccess(this.ConnectionString))
-            {
-                db.ExecuteReader(cmd, (reader) =>
-                {
-                    EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
-                    for (int i = 0; i < reader.FieldCount; i++)
-                    {
-                        reader.SetEntityPropertyValue(i, entity);
-                    }
-                    collection.Add(entity);
-                }, null, CommandType.Text);
-            }
-            return collection;
-        }
+
         #endregion
 
         #region IDataSource
-        Lazy<EdmModel> _Model;
+        EdmModel _Model;
+        readonly object _ModelLocker = new object();
         public EdmModel Model
         {
             get
             {
-                return _Model.Value;
+                if (_Model == null)
+                {
+                    lock (_ModelLocker)
+                    {
+                        if (_Model == null)
+                        {
+                            _Model = BuildEdmModel();
+                        }
+                    }
+                }
+                return _Model;
             }
         }
 
@@ -711,11 +636,13 @@ namespace maskx.OData.Sql
             private set;
         }
 
+        public Action<RequestInfo> BeforeExcute { get; set; }
+        public Action<RequestInfo> AfrerExcute { get; set; }
         public string Create(IEdmEntityObject entity)
         {
             var edmType = entity.GetEdmType();
             var table = (edmType.Definition as EdmEntityType).Name;
-           
+
             object rtv = null;
             string cmdTemplate = "insert into [{0}] ({1}) values ({2}) select SCOPE_IDENTITY() ";
             List<string> cols = new List<string>();
@@ -743,7 +670,7 @@ namespace maskx.OData.Sql
         public int Delete(string key, IEdmType elementType)
         {
             var entityType = elementType as EdmEntityType;
-            
+
             var keyDefine = entityType.DeclaredKey.First();
             int rtv = 0;
             using (DbAccess db = new DbAccess(this.ConnectionString))
@@ -762,7 +689,7 @@ namespace maskx.OData.Sql
             var edmType = queryOptions.Context.Path.GetEdmType() as IEdmCollectionType;
             var entityType = (edmType as IEdmCollectionType).ElementType.AsEntity();
             var table = (entityType.Definition as EdmEntityType).Name;
-            
+
             List<ExpandedNavigationSelectItem> expands = new List<ExpandedNavigationSelectItem>();
             if (queryOptions.SelectExpand != null)
             {
@@ -771,7 +698,6 @@ namespace maskx.OData.Sql
                     var expande = item as ExpandedNavigationSelectItem;
                     if (expande == null)
                         continue;
-                   
                     expands.Add(expande);
                 }
             }
@@ -782,7 +708,7 @@ namespace maskx.OData.Sql
         {
             var cxt = queryOptions.Context;
             var entityType = cxt.ElementType as EdmEntityType;
-           
+
             var keyDefine = entityType.DeclaredKey.First();
             string cmdSql = "select {0} from [{1}] where [{2}]=@{2}";
             var cmdTxt = string.Format(cmdSql
@@ -810,7 +736,7 @@ namespace maskx.OData.Sql
         {
             var cxt = queryOptions.Context;
             var entityType = cxt.ElementType as EdmEntityType;
-            
+
             object rtv = null;
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
@@ -825,37 +751,45 @@ namespace maskx.OData.Sql
         {
             int count = 0;
             IEdmType edmType = func.ReturnType.Definition;
-            
-            if (TVFList.Contains(func.Name))
+            var target = BuildTVFTarget(func, parameterValues);
+            var cmd = BuildSqlQueryCmd(queryOptions, target);
+            using (DbAccess db = new DbAccess(this.ConnectionString))
             {
-                var target = BuildTVFTarget(func, parameterValues);
-                var cmd = BuildSqlQueryCmd(queryOptions, target);
-                using (DbAccess db = new DbAccess(this.ConnectionString))
-                {
-                    var r = db.ExecuteScalar(cmd, null, CommandType.Text);
-                    if (r != null)
-                        count = (int)r;
-                }
+                var r = db.ExecuteScalar(cmd, null, CommandType.Text);
+                if (r != null)
+                    count = (int)r;
             }
             return count;
         }
 
         public IEdmObject InvokeFunction(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions = null)
         {
-            
-            if (TVFList.Contains(func.Name))
-                return InvokeTVF(func, parameterValues, queryOptions);
             IEdmType edmType = func.ReturnType.Definition;
-            if (edmType.TypeKind == EdmTypeKind.Collection)
-                return InvokeFuncCollection(func, parameterValues, queryOptions);
-            return InvokeFuncComplex(func, parameterValues, queryOptions);
+            IEdmType elementType = (edmType as IEdmCollectionType).ElementType.Definition;
+            EdmComplexObjectCollection collection = new EdmComplexObjectCollection(new EdmCollectionTypeReference(edmType as IEdmCollectionType));
+            var target = BuildTVFTarget(func, parameterValues);
+            var cmd = BuildSqlQueryCmd(queryOptions, target);
+            using (DbAccess db = new DbAccess(this.ConnectionString))
+            {
+                db.ExecuteReader(cmd, (reader) =>
+                {
+                    EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        reader.SetEntityPropertyValue(i, entity);
+                    }
+                    collection.Add(entity);
+                }, null, CommandType.Text);
+            }
+            return collection;
+
         }
 
         public int Merge(string key, IEdmEntityObject entity)
         {
             string cmdTemplate = "update [{0}] set {1} where [{2}]=@{2} ";
             var entityType = entity.GetEdmType().Definition as EdmEntityType;
-            
+
             var keyDefine = entityType.DeclaredKey.First();
             List<string> cols = new List<string>();
             List<SqlParameter> sqlpars = new List<SqlParameter>();
@@ -885,7 +819,7 @@ namespace maskx.OData.Sql
         {
             string cmdTemplate = "update [{0}] set {1} where {2} ";
             var entityType = entity.GetEdmType().Definition as EdmEntityType;
-           
+
             var keyName = entityType.DeclaredKey.First().Name;
             List<string> cols = new List<string>();
             List<string> pars = new List<string>();
@@ -910,6 +844,41 @@ namespace maskx.OData.Sql
                     {
                         dbpars.AddRange(sqlpars.ToArray());
                     }, CommandType.Text);
+            }
+            return rtv;
+        }
+        public IEdmObject DoAction(IEdmAction action, JObject parameterValues)
+        {
+            IEdmComplexType edmType = action.ReturnType.Definition as IEdmComplexType;
+            var colltype = edmType.FindProperty("$result").Type.Definition;
+            IEdmComplexType elementType = (colltype as IEdmCollectionType).ElementType.Definition as IEdmComplexType;
+
+            EdmComplexObject rtv = new EdmComplexObject(edmType);
+            object obj;
+            rtv.TryGetPropertyValue("$result", out obj);
+            EdmComplexObjectCollection collection = obj as EdmComplexObjectCollection;
+            using (DbAccess db = new DbAccess(this.ConnectionString))
+            {
+                var par = db.ExecuteReader(action.Name, (reader) =>
+                   {
+                       EdmComplexObject entity = new EdmComplexObject(elementType);
+                       for (int i = 0; i < reader.FieldCount; i++)
+                       {
+                           reader.SetEntityPropertyValue(i, entity);
+                       }
+                       collection.Add(entity);
+                   }, (pars) =>
+                   {
+                       SetParameter(action, parameterValues, pars);
+                   });
+                foreach (var outp in edmType.Properties())
+                {
+                    if (outp.Name == "$result")
+                        continue;
+                    var v = par[outp.Name].Value;
+                    if (DBNull.Value != v)
+                        rtv.TrySetPropertyValue(outp.Name, v);
+                }
             }
             return rtv;
         }

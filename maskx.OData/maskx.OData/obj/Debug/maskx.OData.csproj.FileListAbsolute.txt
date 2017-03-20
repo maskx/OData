@@ -44,4 +44,3 @@ C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\bin\Debug\zh-Hans\Micro
 C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\bin\Debug\zh-Hant\Microsoft.Spatial.resources.dll
 C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\obj\Debug\maskx.OData.dll
 C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\obj\Debug\maskx.OData.pdb
-C:\SourceCode\GitHub\maskx\OData\maskx.OData\maskx.OData\obj\Debug\maskx.OData.csprojResolveAssemblyReference.cache

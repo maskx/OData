@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace maskx.OData
+﻿namespace maskx.OData
 {
     public enum MethodType
     {
@@ -14,6 +8,7 @@ namespace maskx.OData
         Create,
         Get,
         Count,
-        Func
+        Function,
+        Action
     }
 }

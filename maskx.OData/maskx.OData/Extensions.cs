@@ -12,6 +12,7 @@ namespace maskx.OData
 {
     public static class Extensions
     {
+        #region MapDynamicODataServiceRoute
         public static ODataRoute MapDynamicODataServiceRoute(
             this HttpRouteCollection routes,
             string routeName,
@@ -97,7 +98,8 @@ namespace maskx.OData
 
             return odataRoute;
         }
-        private static Func<HttpRequestMessage, IEdmModel> GetModelFuncFromRequest()
+        #endregion
+        internal static Func<HttpRequestMessage, IEdmModel> GetModelFuncFromRequest()
         {
             return request =>
             {
@@ -110,7 +112,7 @@ namespace maskx.OData
                 return model;
             };
         }
-        internal static IEdmType GetEdmType(this System.Web.OData.Routing.ODataPath path)
+        internal static IEdmType GetEdmType(this ODataPath path)
         {
             return path.Segments[0].GetEdmType(path.EdmType);
 
@@ -119,8 +121,8 @@ namespace maskx.OData
         {
             var path = requset.ODataProperties().Path;
             return path.GetEdmType();
-        }
-        public static object ChangeType(this object v, Type t)
+        }  
+        internal static object ChangeType(this object v, Type t)
         {
             if (v == null || Convert.IsDBNull(v))
                 return null;
@@ -142,7 +144,7 @@ namespace maskx.OData
             }
             return null;
         }
-        public static Type ToClrType(this EdmPrimitiveTypeKind t)
+        internal static Type ToClrType(this EdmPrimitiveTypeKind t)
         {
             switch (t)
             {
@@ -220,10 +222,9 @@ namespace maskx.OData
             return typeof(object);
         }
 
-        public static object ChangeType(this object v, EdmPrimitiveTypeKind t)
+        internal static object ChangeType(this object v, EdmPrimitiveTypeKind t)
         {
             return v.ChangeType(t.ToClrType());
         }
-
     }
 }

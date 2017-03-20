@@ -2,9 +2,7 @@
 using Microsoft.OData.Core.UriParser.TreeNodeKinds;
 using Microsoft.OData.Edm;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Web;
 using System.Web.OData.Query;
 
 namespace maskx.OData.Sql

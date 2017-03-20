@@ -1,11 +1,9 @@
 ﻿using Microsoft.OData.Core.UriParser.Semantic;
+using Microsoft.OData.Edm;
 using Microsoft.OData.Edm.Library;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web.OData;
 using System.Web.OData.Query;
 
@@ -125,6 +123,15 @@ namespace maskx.OData.Sql
                 entity.TrySetPropertyValue(name, reader.GetValue(fieldIndex));
             }
         }
-
+        internal static string packCondition(this EdmReferentialConstraintPropertyPair pair, object value)
+        {
+            string w = "[{0}]={1}";
+            var t = pair.DependentProperty.Type;
+            if (t.IsGuid()
+                || t.IsString()
+                || t.IsDateTimeOffset())
+                w = "[{0}]='{1}'";
+            return string.Format(w, pair.PrincipalProperty.Name, value);
+        }
     }
 }

@@ -72,7 +72,6 @@
   <ItemGroup>
     <Compile Include="Constants.cs" />
     <Compile Include="DataSourceProvider.cs" />
-    <Compile Include="DynamicOData.cs" />
     <Compile Include="DynamicODataBatchHandler.cs" />
     <Compile Include="DynamicODataController.cs" />
     <Compile Include="DynamicODataPathRouteConstraint.cs" />
@@ -88,6 +87,7 @@
     <Compile Include="Sql\Extensions.cs" />
     <Compile Include="Sql\ParameterInfo.cs" />
     <Compile Include="Sql\SQL2008.cs" />
+    <Compile Include="Sql\SQL2012.cs" />
     <Compile Include="Sql\SQLDataSource.cs" />
     <Compile Include="Sql\SQLFilterBinder.cs" />
     <Compile Include="Sql\SQLOrderByBinder.cs" />

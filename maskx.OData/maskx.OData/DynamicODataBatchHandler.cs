@@ -18,14 +18,12 @@ namespace maskx.OData
             if (requests == null) { throw new ArgumentNullException("requests"); }
             IList<ODataBatchResponseItem> responses = new List<ODataBatchResponseItem>();
             try
-            {
-               
+            {               
                 foreach (ODataBatchRequestItem request in requests)
                 {
                     var changeSetResponse = await request.SendRequestAsync(Invoker, cancellationToken);
                     responses.Add(changeSetResponse);
                 }
-
             }
             catch
             {
@@ -39,7 +37,6 @@ namespace maskx.OData
                 throw;
             }
             return responses;
-        }
-       
+        }       
     }
 }

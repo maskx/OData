@@ -14,14 +14,13 @@ namespace maskx.OData
 {
     public class DynamicODataController : ODataController
     {
-
         public HttpResponseMessage Get()
         {
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
             var options = BuildQueryOptions();
             EdmEntityObjectCollection rtv = null;
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
                 var ri = new RequestInfo(dsName)
                 {
@@ -29,7 +28,7 @@ namespace maskx.OData
                     QueryOptions = options,
                     Target = options.Context.Path.Segments[0].ToString()
                 };
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
@@ -77,14 +76,14 @@ namespace maskx.OData
             }
             var ri = new RequestInfo(dsName)
             {
-                Method = MethodType.Func,
+                Method = MethodType.Function,
                 Parameters = pars,
                 Target = seg.FunctionName,
                 QueryOptions = queryOptions
             };
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
@@ -106,16 +105,11 @@ namespace maskx.OData
             }
 
         }
-        public HttpResponseMessage PostComplexFunction()
+        public HttpResponseMessage DoAction()
         {
             ODataPath path = Request.ODataProperties().Path;
-            UnboundFunctionPathSegment seg = path.Segments.FirstOrDefault() as UnboundFunctionPathSegment;
-            IEdmType edmType = seg.Function.Function.ReturnType.Definition;
-            IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
-                ? (edmType as IEdmCollectionType).ElementType.Definition
-                : edmType;
-            ODataQueryContext queryContext = new ODataQueryContext(Request.ODataProperties().Model, elementType, path);
-            ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
+            UnboundActionPathSegment seg = path.Segments.FirstOrDefault() as UnboundActionPathSegment;
+            IEdmType elementType = seg.Action.Action.ReturnType.Definition;
             JObject jobj = null;
             if (Request.Content.IsFormData())
             {
@@ -131,25 +125,21 @@ namespace maskx.OData
             var ds = DataSourceProvider.GetDataSource(dsName);
             var ri = new RequestInfo(dsName)
             {
-                Method = MethodType.Func,
+                Method = MethodType.Action,
                 Parameters = jobj,
-                Target = seg.FunctionName,
-                QueryOptions = queryOptions
+                Target = seg.ActionName,
+                QueryOptions = null
             };
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
             try
             {
-                var b = ds.InvokeFunction(seg.Function.Function, ri.Parameters, ri.QueryOptions);
-
-                if (b is EdmComplexObjectCollection)
-                    return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
-                else
-                    return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
+                var b = ds.DoAction(seg.Action.Action, ri.Parameters);
+                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -159,15 +149,13 @@ namespace maskx.OData
             {
                 return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
             }
-
-
         }
         public HttpResponseMessage GetCount()
         {
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
             var options = BuildQueryOptions();
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
                 var ri = new RequestInfo(dsName)
                 {
@@ -175,13 +163,13 @@ namespace maskx.OData
                     QueryOptions = options,
                     Target = options.Context.Path.Segments[0].ToString(),
                 };
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
             try
             {
-                int count = ds.GetCount(BuildQueryOptions());
+                int count = ds.GetCount(options);
                 return Request.CreateResponse(HttpStatusCode.OK, count);
             }
             catch (UnauthorizedAccessException ex)
@@ -233,9 +221,9 @@ namespace maskx.OData
                 Target = seg.FunctionName,
                 QueryOptions = queryOptions
             };
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message); ;
             }
@@ -254,24 +242,13 @@ namespace maskx.OData
             }
 
         }
-        private ODataQueryOptions BuildQueryOptions()
-        {
-            ODataPath path = Request.ODataProperties().Path;
-            IEdmType edmType = path.Segments[0].GetEdmType(path.EdmType);
-            IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
-                ? (edmType as IEdmCollectionType).ElementType.Definition
-                : edmType;
-            ODataQueryContext queryContext = new ODataQueryContext(Request.ODataProperties().Model, elementType, path);
-            ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
-            return queryOptions;
-        }
         //Get entityset(key)
         public HttpResponseMessage Get(string key)
         {
             var options = BuildQueryOptions();
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
                 var ri = new RequestInfo(dsName)
                 {
@@ -279,7 +256,7 @@ namespace maskx.OData
                     QueryOptions = options,
                     Target = options.Context.Path.Segments[0].ToString()
                 };
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
@@ -311,7 +288,7 @@ namespace maskx.OData
             string rtv = null;
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
                 var ri = new RequestInfo(dsName)
                 {
@@ -319,7 +296,7 @@ namespace maskx.OData
                     Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
                     Entity = entity
                 };
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
@@ -345,14 +322,14 @@ namespace maskx.OData
             var edmEntityType = ((EdmCollectionType)edmType).ElementType.Definition;
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
                 var ri = new RequestInfo(dsName)
                 {
                     Method = MethodType.Delete,
                     Target = (edmEntityType as EdmEntityType).Name
                 };
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
@@ -377,7 +354,7 @@ namespace maskx.OData
             if (entity == null)
                 return Request.CreateResponse(HttpStatusCode.BadRequest, "entity cannot be empty.");
             var ds = DataSourceProvider.GetDataSource(dsName);
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
                 var ri = new RequestInfo(dsName)
                 {
@@ -385,7 +362,7 @@ namespace maskx.OData
                     Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
                     Entity = entity
                 };
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
@@ -408,7 +385,7 @@ namespace maskx.OData
         {
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
-            if (DynamicOData.BeforeExcute != null)
+            if (ds.BeforeExcute != null)
             {
                 var ri = new RequestInfo(dsName)
                 {
@@ -416,7 +393,7 @@ namespace maskx.OData
                     Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
                     Entity = entity
                 };
-                DynamicOData.BeforeExcute(ri);
+                ds.BeforeExcute(ri);
                 if (!ri.Result)
                     return Request.CreateResponse(ri.StatusCode, ri.Message);
             }
@@ -434,6 +411,19 @@ namespace maskx.OData
                 return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
             }
 
+        }
+
+
+        ODataQueryOptions BuildQueryOptions()
+        {
+            ODataPath path = Request.ODataProperties().Path;
+            IEdmType edmType = path.Segments[0].GetEdmType(path.EdmType);
+            IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
+                ? (edmType as IEdmCollectionType).ElementType.Definition
+                : edmType;
+            ODataQueryContext queryContext = new ODataQueryContext(Request.ODataProperties().Model, elementType, path);
+            ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
+            return queryOptions;
         }
     }
 }
