@@ -1,0 +1,8 @@
+title: maskx.OData
+description: Dynamic generate OData Controller from SQL Server
+google_analytics: 
+show_downloads: true
+theme: jekyll-theme-time-machine
+
+gems:
+  - jekyll-mentions
