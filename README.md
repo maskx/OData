@@ -138,7 +138,7 @@ SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user'
 
 
 | Special Character| Special Meaning                               | Hexadecimal Value|
-|      :---:       |                                               |      :---:       |
+|      :---:       | ---                                           |      :---:       |
 | +                | Indicates a space(space cannot be used in url)| %28              |
 | /                | Separates directories and subdirectories      | %2F              |
 | ?                | Separates the actual URL and the Parameters   | %3F              |
