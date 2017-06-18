@@ -136,32 +136,16 @@ SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user'
 ### SQL Server 2008
 ### Handling special characters in odata queries
 
-|------------------|-----------------------------------------------|------------------|
+
 | Special Character| Special Meaning                               | Hexadecimal Value|
-+:----------------:+-----------------------------------------------+:----------------:+
+|      :---:       |                                               |      :---:       |
 | +                | Indicates a space(space cannot be used in url)| %28              |
-+------------------+-----------------------------------------------+------------------+
 | /                | Separates directories and subdirectories      | %2F              |
-+------------------+-----------------------------------------------+------------------+
 | ?                | Separates the actual URL and the Parameters   | %3F              |
-+------------------+-----------------------------------------------+------------------+
 | %                |Specifiers special characters                  | %25              |
-+------------------+-----------------------------------------------+------------------+
 |#                 |Indicates the bookmark                         | %23              |
-+------------------+-----------------------------------------------+------------------+
 |&                 |Spearator between parameters specified the URL | %26              |
-|------------------|-----------------------------------------------|------------------|
 
 
-<table style='border:1px'>
-  <header>
-  <th><td>Special Character</td><td>Special Meaning</td><td>Hexadecimal Value</td></th>
-  </header>
-  <body>
-    <tr></tr>
-    </body>
-</table>
-
-#License
+# License
 The MIT License (MIT) - See file 'LICENSE' in this project
-s
