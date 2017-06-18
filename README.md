@@ -9,7 +9,7 @@ the web API is followed the OData protocol ([http://www.odata.org/](http://www.o
 
 # Install
 
-##Database setup
+## Database setup
 In your database execute the database initial script, the initial script locate at folder 'Sql/initialScript/' 
 [https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012](https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012)
 
@@ -18,7 +18,7 @@ those scripts will create the stored procedures query the database schema for bu
 those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you should use the scripts in v2008 folder, it will need you do more configure.
 ~
 
-##WebApi setup
+## WebApi setup
 ### Create a web API project
 
 ### Install odata nuget package 
@@ -133,8 +133,9 @@ DataSourceProvider.AddDataSource(new maskx.OData.Sql.SQLDataSource(<DataSourceNa
 SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user's permission in there
 
 ## More
-###SQL Server 2008
-###Handling special characters in odata queries
+### SQL Server 2008
+### Handling special characters in odata queries
+
 |------------------|-----------------------------------------------|------------------|
 | Special Character| Special Meaning                               | Hexadecimal Value|
 +:----------------:+-----------------------------------------------+:----------------:+
@@ -150,6 +151,16 @@ SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user'
 +------------------+-----------------------------------------------+------------------+
 |&                 |Spearator between parameters specified the URL | %26              |
 |------------------|-----------------------------------------------|------------------|
+
+
+<table style='border:1px'>
+  <header>
+  <th><td>Special Character</td><td>Special Meaning</td><td>Hexadecimal Value</td></th>
+  </header>
+  <body>
+    <tr></tr>
+    </body>
+</table>
 
 #License
 The MIT License (MIT) - See file 'LICENSE' in this project
