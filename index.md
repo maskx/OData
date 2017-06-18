@@ -3,13 +3,13 @@
 
 Dynamic generate OData Controller from SQL Server. 
 It expose the database to client through web API. 
-Through this generated web API, client can query/insert/delete/update the database table , invoke the stored procedure, query the view and table-valued function 
+Through this generated web API, client can query/insert/delete/update the database table , invoke the stored procedure, query the view and table-valued function.  
 the web API is followed the OData protocol ([http://www.odata.org/](http://www.odata.org/)) 
 
 
 # Install
 
-##Database setup
+## Database setup
 In your database execute the database initial script, the initial script locate at folder 'Sql/initialScript/' 
 [https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012](https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012)
 
@@ -18,7 +18,7 @@ those scripts will create the stored procedures query the database schema for bu
 those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you should use the scripts in v2008 folder, it will need you do more configure.
 ~
 
-##WebApi setup
+## WebApi setup
 ### Create a web API project
 
 ### Install odata nuget package 
@@ -118,16 +118,14 @@ SQLDataSource has a BeforeExcute property, you can judge user's permission in th
 
 ```csharp
 DataSourceProvider.AddDataSource(new maskx.OData.Sql.SQLDataSource(<DataSourceName>)
-            {
-                BeforeExcute = (ri) =>
-                {
-                    if (ri.QueryOptions != null && ri.QueryOptions.SelectExpand != null)
-                    {
-                        
-                    }
-                    Console.WriteLine("BeforeExcute:{0}", ri.Target);
-                }
-            });
+ {
+   BeforeExcute = (ri) =>{
+      if (ri.QueryOptions != null && ri.QueryOptions.SelectExpand != null) {
+     
+      }
+      Console.WriteLine("BeforeExcute:{0}", ri.Target);
+   }
+ });
 ```
 
 
@@ -135,8 +133,19 @@ DataSourceProvider.AddDataSource(new maskx.OData.Sql.SQLDataSource(<DataSourceNa
 SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user's permission in there
 
 ## More
-###SQL Server 2008
+### SQL Server 2008
+### Handling special characters in odata queries
 
 
-#License
+| Special Character| Special Meaning                               | Hexadecimal Value|
+|      :---:       | ---                                           |      :---:       |
+| +                | Indicates a space(space cannot be used in url)| %28              |
+| /                | Separates directories and subdirectories      | %2F              |
+| ?                | Separates the actual URL and the Parameters   | %3F              |
+| %                |Specifiers special characters                  | %25              |
+|#                 |Indicates the bookmark                         | %23              |
+|&                 |Spearator between parameters specified the URL | %26              |
+
+
+# License
 The MIT License (MIT) - See file 'LICENSE' in this project
