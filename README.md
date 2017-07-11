@@ -112,7 +112,11 @@ $.ajax({
 ```javascript
    $.get('odata/db/<table-valued function name>()').done(function (data) {alert(data.value) });
 ```
-
+***Parameter***
+```javascript
+   $.get('odata/db/<table-valued function name>(ParameterName1=arameterValue1，ParameterName2=ParameterValue2)')
+   .done(function (data) {alert(data.value) });
+```
 ## Security
 SQLDataSource has a BeforeExcute property, you can judge user's permission in there
 
