@@ -3,7 +3,7 @@
 
 Dynamic generate OData Controller from SQL Server. 
 It expose the database to client through web API. 
-Through this generated web API, client can query/insert/delete/update the database table , invoke the stored procedure, query the view and table-valued function.  
+Through the generated web API, client can query/insert/delete/update the database table , invoke the stored procedure, query the view and table-valued function.  
 the web API is followed the OData protocol ([http://www.odata.org/](http://www.odata.org/)) 
 
 
