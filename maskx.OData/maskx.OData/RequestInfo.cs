@@ -10,7 +10,7 @@ namespace maskx.OData
         public RequestInfo(string dataSourceName)
         {
             this.Message = string.Empty;
-            this.StatusCode = System.Net.HttpStatusCode.NotFound;
+            this.StatusCode = HttpStatusCode.NotFound;
             this.Result = true;
             this.DataSourceName = dataSourceName;
         }
@@ -23,7 +23,7 @@ namespace maskx.OData
         /// Name of Table, View or SP
         /// </summary>
         public string Target { get; internal set; }
-        JObject _Parameters = null;
+        JObject _Parameters;
         /// <summary>
         /// the parameter of function
         /// </summary>

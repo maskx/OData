@@ -1,5 +1,6 @@
-﻿using System.Linq;
-using System.Web.OData.Routing;
+﻿using Microsoft.OData.UriParser;
+using System.Linq;
+using System.Net.Http;
 using System.Web.OData.Routing.Conventions;
 
 namespace maskx.OData
@@ -20,12 +21,11 @@ namespace maskx.OData
             return null;
         }
 
-        public string SelectController(ODataPath odataPath, System.Net.Http.HttpRequestMessage request)
+        public string SelectController(System.Web.OData.Routing.ODataPath odataPath, HttpRequestMessage request)
         {
             var seg = odataPath.Segments.FirstOrDefault();
-            if (seg is EntitySetPathSegment
-                || seg is UnboundFunctionPathSegment
-                || seg is UnboundActionPathSegment
+            if (seg is EntitySetSegment
+                || seg is OperationImportSegment
                 )
                 return "DynamicOData";
             return null;

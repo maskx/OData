@@ -1,4 +1,6 @@
-﻿using Microsoft.OData.Core.UriParser.Semantic;
+﻿using Microsoft.OData.UriParser;
+using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Web.OData.Query;
 
 
@@ -29,11 +31,11 @@ namespace maskx.OData.Sql
                 tableValuedResultSetCommand)
         { }
 
-        internal override string BuildSqlQueryCmd(ExpandedNavigationSelectItem expanded, string condition)
+        internal override string BuildSqlQueryCmd(ExpandedNavigationSelectItem expanded, string condition, List<SqlParameter> pars)
         {
             string table = string.Format("[{0}]", expanded.NavigationSource.Name);
             string cmdTxt = string.Empty;
-
+            
             if (!expanded.CountOption.HasValue && expanded.TopOption.HasValue)
             {
                 if (expanded.SkipOption.HasValue)
@@ -46,7 +48,7 @@ where t.rowIndex between {4} and {5}"
                      , expanded.ParseOrderBy()
                      , expanded.ParseSelect()
                      , table
-                     , expanded.ParseWhere(condition, this.Model)
+                     , expanded.ParseFilter(condition,pars)
                      , expanded.SkipOption.Value + 1
                      , expanded.SkipOption.Value + expanded.TopOption.Value);
                 }
@@ -55,7 +57,7 @@ where t.rowIndex between {4} and {5}"
                        , expanded.TopOption.Value
                        , expanded.ParseSelect()
                        , table
-                       , expanded.ParseWhere(condition, this.Model)
+                       , expanded.ParseFilter(condition,pars)
                        , expanded.ParseOrderBy());
 
             }
@@ -64,18 +66,18 @@ where t.rowIndex between {4} and {5}"
                 cmdTxt = string.Format("select  {0}  from {1} {2} {3} "
                          , expanded.ParseSelect()
                          , table
-                         , expanded.ParseWhere(condition, this.Model)
+                         , expanded.ParseFilter(condition,pars)
                          , expanded.ParseOrderBy());
             }
 
             return cmdTxt;
         }
-        internal override string BuildSqlQueryCmd(ODataQueryOptions options, string target = "")
+        internal override string BuildSqlQueryCmd(ODataQueryOptions options, List<SqlParameter> pars,string target = "")
         {
             var cxt = options.Context;
             string table = target;
             if (string.IsNullOrEmpty(target))
-                table = string.Format("[{0}]", cxt.Path.Segments[0].ToString());
+                table = string.Format("[{0}]", cxt.Path.Segments[0]);
 
             string cmdTxt = string.Empty;
             if (options.Count == null && options.Top != null)
@@ -90,7 +92,7 @@ where t.rowIndex between {4} and {5}"
                      , options.ParseOrderBy()
                      , options.ParseSelect()
                      , table
-                     , options.ParseWhere()
+                     , options.ParseFilter(pars)
                      , options.Skip.Value + 1
                      , options.Skip.Value + options.Top.Value);
                 }
@@ -99,7 +101,7 @@ where t.rowIndex between {4} and {5}"
                         , options.Top.RawValue
                         , options.ParseSelect()
                         , table
-                        , options.ParseWhere()
+                        , options.ParseFilter(pars)
                         , options.ParseOrderBy());
             }
             else
@@ -107,7 +109,7 @@ where t.rowIndex between {4} and {5}"
                 cmdTxt = string.Format("select  {0}  from {1} {2} {3} "
                          , options.ParseSelect()
                          , table
-                         , options.ParseWhere()
+                         , options.ParseFilter(pars)
                          , options.ParseOrderBy());
             }
             return cmdTxt;

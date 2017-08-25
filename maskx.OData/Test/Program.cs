@@ -23,8 +23,8 @@ namespace Test
                 //PostEntity();
                 // SendQuery(string.Format(tpl, _DataSourceName, string.Empty), "Query service document.").Wait();
                 //  SendQuery(string.Format(tpl, _DataSourceName, "$metadata"), "Query $metadata.").Wait();
-                // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers"), "Query AspNetUsers.").Wait();
-                SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$expand=AspNetUserRoles"), "Query $expand").Wait();
+                SendQuery(string.Format(tpl, _DataSourceName, "tt"), "Query AspNetUsers.").Wait();
+                //SendQuery(string.Format(tpl, _DataSourceName, "tt?$expand=AspNetUserRoles"), "Query $expand").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "AspNetUsers?$filter=(endswith(UserName,'min')) or (UserName eq null)&$top=1&$skip=1&$orderby=UserName desc"), "Query AspNetUsers.").Wait();
                 // SendQuery(string.Format(tpl, _DataSourceName, "GetChildrenOrgs(UserId='1',ParentCode='A0000')"), "GetChildrenOrgs").Wait();
                 // BatchRequest();
@@ -41,11 +41,11 @@ namespace Test
         private static void Configuration(IAppBuilder builder)
         {
             HttpConfiguration configuration = new HttpConfiguration();
+            configuration.EnableDependencyInjection();
             var server = new HttpServer(configuration);
-            configuration.Routes.MapDynamicODataServiceRoute(
-                  "odata",
-                  "odata",
-                  server);
+            configuration.MapDynamicODataServiceRoute(
+                  "ss",
+                  "odata"                  );
             DataSourceProvider.AddDataSource(new maskx.OData.Sql.SQLDataSource(_DataSourceName)
             {
                 BeforeExcute = (ri) =>

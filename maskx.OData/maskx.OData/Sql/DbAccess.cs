@@ -1,8 +1,7 @@
 ﻿
 ///----------------------------------------------------------------------------------------
-///reference: https://databooster.codeplex.com/
-///
-///---------------------------------------------------------------------------------------
+///https://databooster.codeplex.com/
+/// ///---------------------------------------------------------------------------------------
 using System;
 using System.Data;
 using System.Data.SqlClient;
@@ -29,16 +28,15 @@ namespace maskx.OData.Sql
         #region Method
         public SqlParameterCollection ExecuteReader(string commandText, Action<SqlDataReader> dataReader, Action<SqlParameterCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
-            SqlParameterCollection pars = null;
-            using (SqlDataReader reader = CreateReader(commandText, commandTimeout, commandType, parametersBuilder, out pars))
+            using (SqlDataReader reader = CreateReader(commandText, commandTimeout, commandType, parametersBuilder, out SqlParameterCollection pars))
             {
                 if (dataReader == null)
                     return pars;
                 while (reader.Read())
                     dataReader(reader);
                 reader.Close();
+                return pars;
             }
-            return pars;
         }
         public object ExecuteScalar(string commandText, Action<SqlParameterCollection> parametersBuilder,
            CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
@@ -91,7 +89,7 @@ namespace maskx.OData.Sql
             , CommandType commandType
             , Action<SqlParameterCollection> parametersBuilder
             , out SqlParameterCollection pars
-            , int resultSetCnt = 1)
+            )
         {
             for (int retry = 0; ; retry++)
             {
@@ -152,8 +150,7 @@ namespace maskx.OData.Sql
             if (commandTimeout > 0)
                 dbCommand.CommandTimeout = commandTimeout;
 
-            if (parametersBuilder != null)
-                parametersBuilder(dbCommand.Parameters);
+            parametersBuilder?.Invoke(dbCommand.Parameters);
 
             return dbCommand;
         }

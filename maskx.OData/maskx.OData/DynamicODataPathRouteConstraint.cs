@@ -1,6 +1,6 @@
-﻿using Microsoft.OData.Core;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.OData;
 using Microsoft.OData.Edm;
-using Microsoft.OData.Edm.Library;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -25,7 +25,7 @@ namespace maskx.OData
             Func<HttpRequestMessage, IEdmModel> modelProvider,
             string routeName,
             IEnumerable<IODataRoutingConvention> routingConventions)
-            : base(pathHandler, new EdmModel(), routeName, routingConventions)
+            : base(routeName)
         {
             EdmModelProvider = modelProvider;
         }
@@ -39,12 +39,12 @@ namespace maskx.OData
         {
             if (request == null)
             {
-                throw new ArgumentNullException("request");
+                throw new ArgumentNullException(nameof(request));
             }
 
             if (values == null)
             {
-                throw new ArgumentNullException("values");
+                throw new ArgumentNullException(nameof(values));
             }
 
             if (routeDirection != HttpRouteDirection.UriResolution)
@@ -87,8 +87,11 @@ namespace maskx.OData
                 {
                     serviceRoot = serviceRoot.Substring(0, serviceRoot.Length - 3);
                 }
+               
+                IServiceProvider requestContainer = request.CreateRequestContainer(RouteName);
 
-                path = PathHandler.Parse(model, serviceRoot, oDataPathAndQuery);
+                IODataPathHandler pathHandler = requestContainer.GetRequiredService<IODataPathHandler>();
+                path = pathHandler.Parse(serviceRoot, oDataPathAndQuery, requestContainer);
             }
             catch (ODataException)
             {
@@ -100,12 +103,12 @@ namespace maskx.OData
                 return false;
             }
 
-            HttpRequestMessageProperties odataProperties = request.ODataProperties();
-            odataProperties.Model = model;
-            odataProperties.PathHandler = PathHandler;
-            odataProperties.Path = path;
-            odataProperties.RouteName = RouteName;
-            odataProperties.RoutingConventions = RoutingConventions;
+            // HttpRequestMessageProperties odataProperties = request.ODataProperties();
+            //odataProperties.Model = model;
+            //odataProperties.PathHandler = PathHandler;
+            //odataProperties.Path = path;
+            //odataProperties.RouteName = RouteName;
+            //odataProperties.RoutingConventions = RoutingConventions;
 
             if (values.ContainsKey(ODataRouteConstants.Controller))
             {

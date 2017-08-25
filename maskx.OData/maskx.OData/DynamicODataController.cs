@@ -1,5 +1,5 @@
 ﻿using Microsoft.OData.Edm;
-using Microsoft.OData.Edm.Library;
+using Microsoft.OData.UriParser;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Linq;
@@ -51,21 +51,21 @@ namespace maskx.OData
         }
         public HttpResponseMessage GetSimpleFunction()
         {
-            ODataPath path = Request.ODataProperties().Path;
+            var path = Request.ODataProperties().Path;
 
-            UnboundFunctionPathSegment seg = path.Segments.FirstOrDefault() as UnboundFunctionPathSegment;
-            IEdmType edmType = seg.Function.Function.ReturnType.Definition;
+            OperationImportSegment seg = path.Segments.FirstOrDefault() as OperationImportSegment;
+            IEdmType edmType = seg.EdmType;
 
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
                 ? (edmType as IEdmCollectionType).ElementType.Definition
                 : edmType;
-            ODataQueryContext queryContext = new ODataQueryContext(Request.ODataProperties().Model, elementType, path);
+            ODataQueryContext queryContext = new ODataQueryContext(Request.GetModel(), elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
 
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
             JObject pars = new JObject();
-            foreach (var p in seg.Function.Function.Parameters)
+            foreach (var p in seg.Parameters)
             {
                 try
                 {
@@ -78,7 +78,7 @@ namespace maskx.OData
             {
                 Method = MethodType.Function,
                 Parameters = pars,
-                Target = seg.FunctionName,
+                Target = seg.Identifier,
                 QueryOptions = queryOptions
             };
             if (ds.BeforeExcute != null)
@@ -89,7 +89,7 @@ namespace maskx.OData
             }
             try
             {
-                var b = ds.InvokeFunction(seg.Function.Function, ri.Parameters, ri.QueryOptions);
+                var b = ds.InvokeFunction(null, ri.Parameters, ri.QueryOptions);
                 if (b is EdmComplexObjectCollection)
                     return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
                 else
@@ -107,9 +107,9 @@ namespace maskx.OData
         }
         public HttpResponseMessage DoAction()
         {
-            ODataPath path = Request.ODataProperties().Path;
-            UnboundActionPathSegment seg = path.Segments.FirstOrDefault() as UnboundActionPathSegment;
-            IEdmType elementType = seg.Action.Action.ReturnType.Definition;
+            var path = Request.ODataProperties().Path;
+            OperationImportSegment seg = path.Segments.FirstOrDefault() as OperationImportSegment;
+            IEdmType elementType = seg.EdmType;
             JObject jobj = null;
             if (Request.Content.IsFormData())
             {
@@ -127,7 +127,7 @@ namespace maskx.OData
             {
                 Method = MethodType.Action,
                 Parameters = jobj,
-                Target = seg.ActionName,
+                Target = seg.Identifier,
                 QueryOptions = null
             };
             if (ds.BeforeExcute != null)
@@ -138,7 +138,7 @@ namespace maskx.OData
             }
             try
             {
-                var b = ds.DoAction(seg.Action.Action, ri.Parameters);
+                var b = ds.DoAction(null, ri.Parameters);
                 return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
             }
             catch (UnauthorizedAccessException ex)
@@ -184,19 +184,19 @@ namespace maskx.OData
         }
         public HttpResponseMessage GetFuncResultCount()
         {
-            ODataPath path = Request.ODataProperties().Path;
-            UnboundFunctionPathSegment seg = path.Segments.FirstOrDefault() as UnboundFunctionPathSegment;
-            IEdmType edmType = seg.Function.Function.ReturnType.Definition;
+            var path = Request.ODataProperties().Path;
+            OperationImportSegment seg = path.Segments.FirstOrDefault() as OperationImportSegment;
+            IEdmType edmType = seg.EdmType;
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
                 ? (edmType as IEdmCollectionType).ElementType.Definition
                 : edmType;
-            ODataQueryContext queryContext = new ODataQueryContext(Request.ODataProperties().Model, elementType, path);
+            ODataQueryContext queryContext = new ODataQueryContext(Request.GetModel(), elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
             JObject pars;
             if (Request.Method == HttpMethod.Get)
             {
                 pars = new JObject();
-                foreach (var p in seg.Function.Function.Parameters)
+                foreach (var p in seg.Parameters)
                 {
                     try
                     {
@@ -210,15 +210,13 @@ namespace maskx.OData
             {
                 pars = Request.Content.ReadAsAsync<JObject>().Result;
             }
-
-
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
             var ri = new RequestInfo(dsName)
             {
                 Method = MethodType.Count,
                 Parameters = pars,
-                Target = seg.FunctionName,
+                Target = seg.Identifier,
                 QueryOptions = queryOptions
             };
             if (ds.BeforeExcute != null)
@@ -229,7 +227,7 @@ namespace maskx.OData
             }
             try
             {
-                var count = ds.GetFuncResultCount(seg.Function.Function, ri.Parameters, ri.QueryOptions);
+                var count = ds.GetFuncResultCount(null, ri.Parameters, ri.QueryOptions);
                 return Request.CreateResponse(HttpStatusCode.OK, count);
             }
             catch (UnauthorizedAccessException ex)
@@ -279,7 +277,7 @@ namespace maskx.OData
         {
             if (entity == null)
                 return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "entity cannot be empty");
-            ODataPath path = Request.ODataProperties().Path;
+            var path = Request.ODataProperties().Path;
             IEdmType edmType = path.EdmType;
             if (edmType.TypeKind != EdmTypeKind.Collection)
             {
@@ -318,7 +316,7 @@ namespace maskx.OData
         public HttpResponseMessage Delete(string key)
         {
             var path = Request.ODataProperties().Path;
-            var edmType = path.Segments[0].GetEdmType(path.EdmType);
+            var edmType = path.Segments[0].EdmType;
             var edmEntityType = ((EdmCollectionType)edmType).ElementType.Definition;
             string dsName = (string)Request.Properties[Constants.ODataDataSource];
             var ds = DataSourceProvider.GetDataSource(dsName);
@@ -416,12 +414,12 @@ namespace maskx.OData
 
         ODataQueryOptions BuildQueryOptions()
         {
-            ODataPath path = Request.ODataProperties().Path;
-            IEdmType edmType = path.Segments[0].GetEdmType(path.EdmType);
+            var path = Request.ODataProperties().Path;
+            IEdmType edmType = path.Segments[0].EdmType;
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
                 ? (edmType as IEdmCollectionType).ElementType.Definition
                 : edmType;
-            ODataQueryContext queryContext = new ODataQueryContext(Request.ODataProperties().Model, elementType, path);
+            ODataQueryContext queryContext = new ODataQueryContext(Request.GetModel(), elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
             return queryOptions;
         }
