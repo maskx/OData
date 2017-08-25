@@ -1,7 +1,8 @@
-﻿using Microsoft.OData.Core.UriParser.Semantic;
-using Microsoft.OData.Core.UriParser.TreeNodeKinds;
-using Microsoft.OData.Edm;
+﻿using Microsoft.OData.Edm;
+using Microsoft.OData.UriParser;
 using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Web.OData.Query;
 
@@ -11,42 +12,48 @@ namespace maskx.OData.Sql
     /// reference:
     /// https://aspnet.codeplex.com/SourceControl/changeset/view/72014f4c779e#Samples/WebApi/NHibernateQueryableSample/System.Web.Http.OData.NHibernate/NHibernateFilterBinder.cs
     /// </summary>
-    class SQLFilterBinder
+    static class SQLFilterBinder
     {
-        private IEdmModel _model;
-
-        protected SQLFilterBinder(IEdmModel model)
+        internal static string ParseFilter(this ODataQueryOptions options, List<SqlParameter> pars)
         {
-            _model = model;
-        }
-
-        public static string BindFilterQueryOption(FilterQueryOption filterQuery)
-        {
-            if (filterQuery != null)
-            {
-                SQLFilterBinder binder = new SQLFilterBinder(filterQuery.Context.Model);
-                return binder.BindFilter(filterQuery) + Environment.NewLine;
-            }
-            return string.Empty;
-        }
-        public static string BindFilterQueryOption(FilterClause filterClause, IEdmModel model)
-        {
-            if (filterClause == null || model == null)
+            if (options.Filter == null || options.Filter.FilterClause == null)
                 return string.Empty;
-            SQLFilterBinder binder = new SQLFilterBinder(model);
-            return binder.BindFilterClause(filterClause) + Environment.NewLine;
+            string where = options.Filter.FilterClause.ParseFilter(pars);
+            if (!string.IsNullOrEmpty(where))
+                where = " where " + where;
+            return where;
         }
-        protected string BindFilter(FilterQueryOption filterQuery)
+        internal static string ParseFilter(this ExpandedNavigationSelectItem expanded, string condition, List<SqlParameter> pars)
         {
-            return BindFilterClause(filterQuery.FilterClause);
+            string where = expanded.FilterOption.ParseFilter(pars);
+            if (string.IsNullOrEmpty(where))
+            {
+                where = condition;
+            }
+            else if (!string.IsNullOrEmpty(condition))
+            {
+                where = string.Format("({0}) and ({1})", condition, where);
+            }
+
+            if (!string.IsNullOrEmpty(where))
+            {
+                where = " where " + where;
+            }
+            return where;
+        }
+        public static string ParseFilter(this FilterClause filterClause, List<SqlParameter> pars)
+        {
+            if (filterClause == null)
+                return string.Empty;
+            return filterClause.BindFilterClause(pars) + Environment.NewLine;
         }
 
-        protected string BindFilterClause(FilterClause filterClause)
+        static string BindFilterClause(this FilterClause filterClause, List<SqlParameter> pars)
         {
-            return Bind(filterClause.Expression);
+            return Bind(filterClause.Expression, pars);
         }
 
-        protected string Bind(QueryNode node)
+        static string Bind(QueryNode node, List<SqlParameter> pars)
         {
             CollectionNode collectionNode = node as CollectionNode;
             SingleValueNode singleValueNode = node as SingleValueNode;
@@ -57,7 +64,7 @@ namespace maskx.OData.Sql
                 {
                     case QueryNodeKind.CollectionNavigationNode:
                         CollectionNavigationNode navigationNode = node as CollectionNavigationNode;
-                        return BindNavigationPropertyNode(navigationNode.Source, navigationNode.NavigationProperty);
+                        return BindNavigationPropertyNode(navigationNode.Source, navigationNode.NavigationProperty, pars);
 
                     case QueryNodeKind.CollectionPropertyAccess:
                         return BindCollectionPropertyAccessNode(node as CollectionPropertyAccessNode);
@@ -68,94 +75,113 @@ namespace maskx.OData.Sql
                 switch (node.Kind)
                 {
                     case QueryNodeKind.BinaryOperator:
-                        return BindBinaryOperatorNode(node as BinaryOperatorNode);
+                        return BindBinaryOperatorNode(node as BinaryOperatorNode, pars);
 
                     case QueryNodeKind.Constant:
                         return BindConstantNode(node as ConstantNode);
 
                     case QueryNodeKind.Convert:
-                        return BindConvertNode(node as ConvertNode);
+                        return BindConvertNode(node as ConvertNode, pars);
 
-                    case QueryNodeKind.EntityRangeVariableReference:
-                        return BindRangeVariable((node as EntityRangeVariableReferenceNode).RangeVariable);
+                    case QueryNodeKind.ResourceRangeVariableReference:
+                        return BindRangeVariable((node as ResourceRangeVariableReferenceNode).RangeVariable);
 
-                    case QueryNodeKind.NonentityRangeVariableReference:
-                        return BindRangeVariable((node as NonentityRangeVariableReferenceNode).RangeVariable);
+                    case QueryNodeKind.NonResourceRangeVariableReference:
+                        return BindRangeVariable((node as NonResourceRangeVariableReferenceNode).RangeVariable);
 
                     case QueryNodeKind.SingleValuePropertyAccess:
                         return BindPropertyAccessQueryNode(node as SingleValuePropertyAccessNode);
 
                     case QueryNodeKind.UnaryOperator:
-                        return BindUnaryOperatorNode(node as UnaryOperatorNode);
+                        return BindUnaryOperatorNode(node as UnaryOperatorNode, pars);
 
                     case QueryNodeKind.SingleValueFunctionCall:
-                        return BindSingleValueFunctionCallNode(node as SingleValueFunctionCallNode);
+                        return BindSingleValueFunctionCallNode(node as SingleValueFunctionCallNode, pars);
 
                     case QueryNodeKind.SingleNavigationNode:
                         SingleNavigationNode navigationNode = node as SingleNavigationNode;
-                        return BindNavigationPropertyNode(navigationNode.Source, navigationNode.NavigationProperty);
+                        return BindNavigationPropertyNode(navigationNode.Source, navigationNode.NavigationProperty, pars);
 
                     case QueryNodeKind.Any:
-                        return BindAnyNode(node as AnyNode);
+                        return BindAnyNode(node as AnyNode, pars);
 
                     case QueryNodeKind.All:
-                        return BindAllNode(node as AllNode);
+                        return BindAllNode(node as AllNode, pars);
                 }
             }
 
             throw new NotSupportedException(String.Format("Nodes of type {0} are not supported", node.Kind));
         }
 
-        private string BindCollectionPropertyAccessNode(CollectionPropertyAccessNode collectionPropertyAccessNode)
+        private static string BindCollectionPropertyAccessNode(CollectionPropertyAccessNode collectionPropertyAccessNode)
         {
             return collectionPropertyAccessNode.Property.Name;
             //return Bind(collectionPropertyAccessNode.Source) + "." + collectionPropertyAccessNode.Property.Name;
         }
 
-        private string BindNavigationPropertyNode(SingleValueNode singleValueNode, IEdmNavigationProperty edmNavigationProperty)
+        private static string BindNavigationPropertyNode(SingleValueNode singleValueNode, IEdmNavigationProperty edmNavigationProperty, List<SqlParameter> pars)
         {
-            return Bind(singleValueNode) + "." + edmNavigationProperty.Name;
+            return Bind(singleValueNode, pars) + "." + edmNavigationProperty.Name;
         }
 
-        private string BindAllNode(AllNode allNode)
+        private static string BindAllNode(AllNode allNode, List<SqlParameter> pars)
         {
-            string innerQuery = "not exists ( from " + Bind(allNode.Source) + " " + allNode.RangeVariables.First().Name;
-            innerQuery += " where NOT(" + Bind(allNode.Body) + ")";
+            string innerQuery = "not exists ( from " + Bind(allNode.Source, pars) + " " + allNode.RangeVariables.First().Name;
+            innerQuery += " where NOT(" + Bind(allNode.Body, pars) + ")";
             return innerQuery + ")";
         }
 
-        private string BindAnyNode(AnyNode anyNode)
+        private static string BindAnyNode(AnyNode anyNode, List<SqlParameter> pars)
         {
-            string innerQuery = "exists ( from " + Bind(anyNode.Source) + " " + anyNode.RangeVariables.First().Name;
+            string innerQuery = "exists ( from " + Bind(anyNode.Source, pars) + " " + anyNode.RangeVariables.First().Name;
             if (anyNode.Body != null)
             {
-                innerQuery += " where " + Bind(anyNode.Body);
+                innerQuery += " where " + Bind(anyNode.Body, pars);
             }
             return innerQuery + ")";
         }
 
-        private string BindNavigationPropertyNode(SingleEntityNode singleEntityNode, IEdmNavigationProperty edmNavigationProperty)
+        private static string BindNavigationPropertyNode(SingleEntityNode singleEntityNode, IEdmNavigationProperty edmNavigationProperty, List<SqlParameter> pars)
         {
-            return Bind(singleEntityNode) + "." + edmNavigationProperty.Name;
+            return Bind(singleEntityNode, pars) + "." + edmNavigationProperty.Name;
         }
 
-        private string BindSingleValueFunctionCallNode(SingleValueFunctionCallNode singleValueFunctionCallNode)
+        private static string BindSingleValueFunctionCallNode(SingleValueFunctionCallNode singleValueFunctionCallNode, List<SqlParameter> pars)
         {
             var arguments = singleValueFunctionCallNode.Parameters.ToList();
+            string name = string.Empty;
+            string parName = string.Empty;
+            object parValue = null;
             switch (singleValueFunctionCallNode.Name)
             {
                 case "concat":
-                    return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0]) + "," + Bind(arguments[1]) + ")";
+                    return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0], pars) + "," + Bind(arguments[1], pars) + ")";
                 case "contains":
-                    return string.Format("{0} like '%{1}%'", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
+                    name = Bind(arguments[0], pars);
+                    parName = name + pars.Count;
+                    parValue = string.Format("%{0}%", (arguments[1] as ConstantNode).Value);
+                    pars.Add(new SqlParameter(parName, parValue.ToString()));
+                    return string.Format("{0} like @{1}", name, parName);
                 case "endswith":
-                    return string.Format("{0} like '%{1}'", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
+                    name = Bind(arguments[0], pars);
+                    parName = name + pars.Count;
+                    parValue = string.Format("%{0}", (arguments[1] as ConstantNode).Value);
+                    pars.Add(new SqlParameter(parName, parValue.ToString()));
+                    return string.Format("{0} like @{1}", name, parName);
                 case "startswith":
-                    return string.Format("{0} like '{1}%'", Bind(arguments[0]), (arguments[1] as ConstantNode).Value);
+                    name = Bind(arguments[0], pars);
+                    parName = name + pars.Count;
+                    parValue = string.Format("{0}%", (arguments[1] as ConstantNode).Value);
+                    pars.Add(new SqlParameter(parName, parValue.ToString()));
+                    return string.Format("{0} like @{1}", name, parName);
                 case "length":
-                    return string.Format("len({0})", Bind(arguments[0]));
+                    return string.Format("len({0})", Bind(arguments[0], pars));
                 case "indexof":
-                    return string.Format("charindex('{0}',{1}", (arguments[1] as ConstantNode).Value, Bind(arguments[0]));
+                    name = Bind(arguments[0], pars);
+                    parName = name + pars.Count;
+                    parValue = (arguments[1] as ConstantNode).Value;
+                    pars.Add(new SqlParameter(parName, parValue.ToString()));
+                    return string.Format("charindex(@{0},{1}", parName, name);
                 case "substring":
                 case "tolower":
                 case "toupper":
@@ -175,39 +201,39 @@ namespace maskx.OData.Sql
                 case "round":
                 case "floor":
                 case "ceiling":
-                    return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0]) + ")";
+                    return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0], pars) + ")";
                 default:
                     throw new NotImplementedException();
             }
         }
 
-        private string BindUnaryOperatorNode(UnaryOperatorNode unaryOperatorNode)
+        private static string BindUnaryOperatorNode(UnaryOperatorNode unaryOperatorNode, List<SqlParameter> pars)
         {
-            return ToString(unaryOperatorNode.OperatorKind) + "(" + Bind(unaryOperatorNode.Operand) + ")";
+            return ToString(unaryOperatorNode.OperatorKind) + "(" + Bind(unaryOperatorNode.Operand, pars) + ")";
         }
 
-        private string BindPropertyAccessQueryNode(SingleValuePropertyAccessNode singleValuePropertyAccessNode)
+        private static string BindPropertyAccessQueryNode(SingleValuePropertyAccessNode singleValuePropertyAccessNode)
         {
             return singleValuePropertyAccessNode.Property.Name;
             //  return Bind(singleValuePropertyAccessNode.Source) + "." + singleValuePropertyAccessNode.Property.Name;
         }
 
-        private string BindRangeVariable(NonentityRangeVariable nonentityRangeVariable)
+        private static string BindRangeVariable(NonResourceRangeVariable nonentityRangeVariable)
         {
-            return nonentityRangeVariable.Name.ToString();
+            return nonentityRangeVariable.Name;
         }
 
-        private string BindRangeVariable(EntityRangeVariable entityRangeVariable)
+        private static string BindRangeVariable(ResourceRangeVariable entityRangeVariable)
         {
-            return entityRangeVariable.Name.ToString();
+            return entityRangeVariable.Name;
         }
 
-        private string BindConvertNode(ConvertNode convertNode)
+        private static string BindConvertNode(ConvertNode convertNode, List<SqlParameter> pars)
         {
-            return Bind(convertNode.Source);
+            return Bind(convertNode.Source, pars);
         }
 
-        private string BindConstantNode(ConstantNode constantNode)
+        private static string BindConstantNode(ConstantNode constantNode)
         {
             if (constantNode.Value is string)
                 return String.Format("'{0}'", constantNode.Value);
@@ -222,10 +248,10 @@ namespace maskx.OData.Sql
             return constantNode.Value.ToString();
         }
 
-        private string BindBinaryOperatorNode(BinaryOperatorNode binaryOperatorNode)
+        private static string BindBinaryOperatorNode(BinaryOperatorNode binaryOperatorNode, List<SqlParameter> pars)
         {
-            var left = Bind(binaryOperatorNode.Left);
-            var right = Bind(binaryOperatorNode.Right);
+            var left = Bind(binaryOperatorNode.Left, pars);
+            var right = Bind(binaryOperatorNode.Right, pars);
             if (binaryOperatorNode.OperatorKind == BinaryOperatorKind.Equal
                 && right == "null")
                 return "(" + left + " is null)";
@@ -235,7 +261,7 @@ namespace maskx.OData.Sql
             return "(" + left + " " + ToString(binaryOperatorNode.OperatorKind) + " " + right + ")";
         }
 
-        private string ToString(BinaryOperatorKind binaryOpertor)
+        private static string ToString(BinaryOperatorKind binaryOpertor)
         {
             switch (binaryOpertor)
             {
@@ -270,7 +296,7 @@ namespace maskx.OData.Sql
             }
         }
 
-        private string ToString(UnaryOperatorKind unaryOperator)
+        private static string ToString(UnaryOperatorKind unaryOperator)
         {
             switch (unaryOperator)
             {

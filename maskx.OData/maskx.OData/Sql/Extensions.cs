@@ -1,9 +1,9 @@
-﻿using Microsoft.OData.Core.UriParser.Semantic;
-using Microsoft.OData.Edm;
-using Microsoft.OData.Edm.Library;
+﻿using Microsoft.OData.Edm;
+using Microsoft.OData.UriParser;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Data.SqlClient;
 using System.Web.OData;
 using System.Web.OData.Query;
 
@@ -61,51 +61,7 @@ namespace maskx.OData.Sql
             }
             return string.Join(",", s);
         }
-        internal static string ParseOrderBy(this ODataQueryOptions options)
-        {
-            if (options.Count != null)
-                return string.Empty;
-            if (options.OrderBy == null)
-                return string.Empty;
-            return SQLOrderByBinder.BindOrderByQueryOption(options.OrderBy.OrderByClause);
-
-        }
-        internal static string ParseOrderBy(this ExpandedNavigationSelectItem expanded)
-        {
-            if (expanded.CountOption.HasValue)
-                return string.Empty;
-            if (expanded.OrderByOption == null)
-                return string.Empty;
-            return SQLOrderByBinder.BindOrderByQueryOption(expanded.OrderByOption);
-
-        }
-        internal static string ParseWhere(this ODataQueryOptions options)
-        {
-            if (options.Filter == null)
-                return string.Empty;
-            string where = SQLFilterBinder.BindFilterQueryOption(options.Filter.FilterClause, options.Context.Model);
-            if (!string.IsNullOrEmpty(where))
-                where = " where " + where;
-            return where;
-        }
-        internal static string ParseWhere(this ExpandedNavigationSelectItem expanded, string condition, EdmModel model)
-        {
-            string where = SQLFilterBinder.BindFilterQueryOption(expanded.FilterOption, model);
-            if (string.IsNullOrEmpty(where))
-            {
-                where = condition;
-            }
-            else if (!string.IsNullOrEmpty(condition))
-            {
-                where = string.Format("({0}) and ({1})", condition, where);
-            }
-
-            if (!string.IsNullOrEmpty(where))
-            {
-                where = " where " + where;
-            }
-            return where;
-        }
+        
         internal static void SetEntityPropertyValue(this DbDataReader reader, int fieldIndex, EdmStructuredObject entity)
         {
             string name = reader.GetName(fieldIndex);

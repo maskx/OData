@@ -1,6 +1,5 @@
-﻿using Microsoft.OData.Core.UriParser.Semantic;
-using Microsoft.OData.Edm;
-using Microsoft.OData.Edm.Library;
+﻿using Microsoft.OData.Edm;
+using Microsoft.OData.UriParser;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -424,7 +423,7 @@ namespace maskx.OData.Sql
             return new EdmComplexTypeReference(root, true);
         }
 
-        internal virtual string BuildSqlQueryCmd(ODataQueryOptions options, string target = "")
+        internal virtual string BuildSqlQueryCmd(ODataQueryOptions options, List<SqlParameter> pars, string target = "")
         {
             var cxt = options.Context;
             string table = target;
@@ -446,17 +445,18 @@ namespace maskx.OData.Sql
                 else
                     top = "top " + options.Top.RawValue;
             }
+
             var cmdtxt = string.Format(cmdSql
                 , top
                 , options.ParseSelect()
                 , table
-                , options.ParseWhere()
+                , options.ParseFilter(pars)
                 , options.ParseOrderBy()
                 , skip
                 , fetch);
             return cmdtxt;
         }
-        internal virtual string BuildSqlQueryCmd(ExpandedNavigationSelectItem expanded, string condition)
+        internal virtual string BuildSqlQueryCmd(ExpandedNavigationSelectItem expanded, string condition, List<SqlParameter> pars)
         {
             string table = string.Format("[{0}]", expanded.NavigationSource.Name);
             string cmdSql = "select {0} {1} from {2} {3} {4} {5} {6}";
@@ -475,21 +475,20 @@ namespace maskx.OData.Sql
                 else
                     top = "top " + expanded.TopOption.Value;
             }
-
             var cmdtxt = string.Format(cmdSql
                 , top
                 , expanded.ParseSelect()
                 , table
-                , expanded.ParseWhere(condition, this.Model)
+                , expanded.ParseFilter(condition, pars)
                 , expanded.ParseOrderBy()
                 , skip
                 , fetch);
             return cmdtxt;
         }
-        EdmEntityObjectCollection Get(IEdmCollectionType edmType, string sqlCmd, List<ExpandedNavigationSelectItem> expands = null)
+
+        EdmEntityObjectCollection Get(IEdmCollectionType edmType, string sqlCmd, List<SqlParameter> pars, List<ExpandedNavigationSelectItem> expands = null)
         {
             var entityType = edmType.ElementType.AsEntity();
-
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
@@ -512,13 +511,19 @@ namespace maskx.OData.Sql
                                     condition.Add(p.packCondition(reader[p.DependentProperty.Name]));
                                 }
                             }
-                            var ss = Get(expanded.NavigationSource.Type as IEdmCollectionType, BuildSqlQueryCmd(expanded, string.Join(" and ", condition)));
+                            List<SqlParameter> exPars = new List<SqlParameter>();
+                            string expandCmd = BuildSqlQueryCmd(expanded, string.Join(" and ", condition), exPars);
+                            var ss = Get(expanded.NavigationSource.Type as IEdmCollectionType, expandCmd, exPars);
                             bool t = entity.TrySetPropertyValue(expanded.NavigationSource.Name, ss);
                         }
                     }
                     collection.Add(entity);
 
-                }, null, CommandType.Text);
+                }, (parbuilder) =>
+                {
+                    parbuilder.AddRange(pars.ToArray());
+                },
+                CommandType.Text);
             }
             return collection;
         }
@@ -701,7 +706,9 @@ namespace maskx.OData.Sql
                     expands.Add(expande);
                 }
             }
-            return Get(edmType, BuildSqlQueryCmd(queryOptions), expands);
+            List<SqlParameter> pars = new List<SqlParameter>();
+            string sqlCmd = BuildSqlQueryCmd(queryOptions, pars);
+            return Get(edmType, sqlCmd, pars, expands);
         }
 
         public EdmEntityObject Get(string key, ODataQueryOptions queryOptions)
@@ -726,7 +733,10 @@ namespace maskx.OData.Sql
                             reader.SetEntityPropertyValue(i, entity);
                         }
                     },
-                    (par) => { par.AddWithValue("@" + keyDefine.Name, key.ChangeType(keyDefine.Type.PrimitiveKind())); },
+                    (par) =>
+                    {
+                        par.AddWithValue("@" + keyDefine.Name, key.ChangeType(keyDefine.Type.PrimitiveKind()));
+                    },
                     CommandType.Text);
             }
             return entity;
@@ -738,9 +748,13 @@ namespace maskx.OData.Sql
             var entityType = cxt.ElementType as EdmEntityType;
 
             object rtv = null;
+            List<SqlParameter> pars = new List<SqlParameter>();
+            string sqlCmd = BuildSqlQueryCmd(queryOptions, pars);
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
-                rtv = db.ExecuteScalar(BuildSqlQueryCmd(queryOptions), null, CommandType.Text);
+                rtv = db.ExecuteScalar(sqlCmd,
+                    (parBuilder) => { parBuilder.AddRange(pars.ToArray()); },
+                    CommandType.Text);
             }
             if (rtv == null)
                 return 0;
@@ -752,10 +766,14 @@ namespace maskx.OData.Sql
             int count = 0;
             IEdmType edmType = func.ReturnType.Definition;
             var target = BuildTVFTarget(func, parameterValues);
-            var cmd = BuildSqlQueryCmd(queryOptions, target);
+            List<SqlParameter> pars = new List<SqlParameter>();
+            var cmd = BuildSqlQueryCmd(queryOptions, pars, target);
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
-                var r = db.ExecuteScalar(cmd, null, CommandType.Text);
+                var r = db.ExecuteScalar(
+                    cmd,
+                    (parBuider) => { parBuider.AddRange(pars.ToArray()); },
+                    CommandType.Text);
                 if (r != null)
                     count = (int)r;
             }
@@ -768,7 +786,8 @@ namespace maskx.OData.Sql
             IEdmType elementType = (edmType as IEdmCollectionType).ElementType.Definition;
             EdmComplexObjectCollection collection = new EdmComplexObjectCollection(new EdmCollectionTypeReference(edmType as IEdmCollectionType));
             var target = BuildTVFTarget(func, parameterValues);
-            var cmd = BuildSqlQueryCmd(queryOptions, target);
+            List<SqlParameter> pars = new List<SqlParameter>();
+            var cmd = BuildSqlQueryCmd(queryOptions, pars, target);
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmd, (reader) =>
@@ -779,7 +798,9 @@ namespace maskx.OData.Sql
                         reader.SetEntityPropertyValue(i, entity);
                     }
                     collection.Add(entity);
-                }, null, CommandType.Text);
+                },
+                (parBuilder) => { parBuilder.AddRange(pars.ToArray()); },
+                CommandType.Text);
             }
             return collection;
 

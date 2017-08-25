@@ -1,24 +1,35 @@
-﻿using Microsoft.OData.Core.UriParser;
-using Microsoft.OData.Core.UriParser.Semantic;
+﻿
+using Microsoft.OData.UriParser;
+using System.Web.OData.Query;
 
 namespace maskx.OData.Sql
 {
-    class SQLOrderByBinder
+    static class SQLOrderByBinder
     {
-        public static string BindOrderByQueryOption(OrderByClause orderByClause)
+        internal static string ParseOrderBy(this ODataQueryOptions options)
         {
-            if (orderByClause == null)
+            if (options.Count != null
+                || options.OrderBy == null
+                || options.OrderBy.OrderByClause == null)
                 return string.Empty;
-            return "order by " + BindOrderByClause(orderByClause);
+            return "order by " + options.OrderBy.OrderByClause.BindOrderByClause();
         }
-        static string BindOrderByClause(OrderByClause orderByClause)
+        internal static string ParseOrderBy(this ExpandedNavigationSelectItem expanded)
+        {
+            if (expanded.CountOption.HasValue)
+                return string.Empty;
+            if (expanded.OrderByOption == null)
+                return string.Empty;
+            return "order by " + expanded.OrderByOption.BindOrderByClause();
+        }
+        static string BindOrderByClause(this OrderByClause orderByClause)
         {
             string orderby = string.Format("[{0}] {1}", Bind(orderByClause.Expression), GetDirection(orderByClause.Direction));
             if (orderByClause.ThenBy != null)
                 orderby += "," + BindOrderByClause(orderByClause.ThenBy);
             return orderby;
         }
-        static string GetDirection(OrderByDirection dir)
+        static string GetDirection(this OrderByDirection dir)
         {
             if (dir == OrderByDirection.Ascending)
                 return "asc";
@@ -32,9 +43,9 @@ namespace maskx.OData.Sql
             {
                 switch (singleValueNode.Kind)
                 {
-                    case Microsoft.OData.Core.UriParser.TreeNodeKinds.QueryNodeKind.EntityRangeVariableReference:
-                        return BindRangeVariable((node as EntityRangeVariableReferenceNode).RangeVariable);
-                    case Microsoft.OData.Core.UriParser.TreeNodeKinds.QueryNodeKind.SingleValuePropertyAccess:
+                    case QueryNodeKind.ResourceRangeVariableReference:
+                        return BindRangeVariable((node as ResourceRangeVariableReferenceNode).RangeVariable);
+                    case QueryNodeKind.SingleValuePropertyAccess:
                         return BindPropertyAccessQueryNode(node as SingleValuePropertyAccessNode);
                     default:
                         return string.Empty;
@@ -46,9 +57,9 @@ namespace maskx.OData.Sql
         {
             return singleValuePropertyAccessNode.Property.Name;
         }
-        static string BindRangeVariable(EntityRangeVariable entityRangeVariable)
+        static string BindRangeVariable(ResourceRangeVariable entityRangeVariable)
         {
-            return entityRangeVariable.Name.ToString();
+            return entityRangeVariable.Name;
         }
     }
 }

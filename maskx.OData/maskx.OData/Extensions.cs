@@ -1,8 +1,10 @@
-﻿using Microsoft.OData.Edm;
+﻿using Microsoft.OData;
+using Microsoft.OData.Edm;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Web.Http;
+using System.Web.Http.Routing;
 using System.Web.OData.Batch;
 using System.Web.OData.Extensions;
 using System.Web.OData.Routing;
@@ -12,14 +14,54 @@ namespace maskx.OData
 {
     public static class Extensions
     {
-        #region MapDynamicODataServiceRoute
         public static ODataRoute MapDynamicODataServiceRoute(
-            this HttpRouteCollection routes,
+            this HttpConfiguration configuration,
+            string routeName,
+            string routePrefix,
+            IODataPathHandler pathHandler,
+            IEnumerable<IODataRoutingConvention> routingConventions,
+            ODataBatchHandler batchHandler)
+        {
+            return configuration.MapODataServiceRoute(routeName, routePrefix, (builder) =>
+            {
+
+                builder.AddService(ServiceLifetime.Singleton, (sp) => pathHandler);
+                builder.AddService(ServiceLifetime.Singleton, (sp) => routingConventions);
+                builder.AddService(ServiceLifetime.Singleton, (sp) => batchHandler);
+                builder.AddService(ServiceLifetime.Singleton, (sp) =>
+                {
+                    IEdmModel model = DataSourceProvider.GetEdmModel(routeName);
+                    return model;
+                });
+                builder.AddService<IHttpRouteConstraint>(ServiceLifetime.Singleton, (sp) =>
+                {
+                    return new DynamicODataPathRouteConstraint(null,null,string.Empty,null);
+                });
+            });
+        }
+        public static ODataRoute MapDynamicODataServiceRoute(
+            this HttpConfiguration configuration,
             string routeName,
             string routePrefix)
         {
             IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
             routingConventions.Insert(0, new DynamicODataRoutingConvention());
+            return configuration.MapDynamicODataServiceRoute(
+                routeName,
+                routePrefix,
+                new DefaultODataPathHandler(),
+                routingConventions,
+                new DynamicODataBatchHandler(new ODataHttpServer(configuration)));
+        }
+        #region MapDynamicODataServiceRoute
+        public static ODataRoute MapDynamicODataServiceRoute(
+        this HttpRouteCollection routes,
+        string routeName,
+        string routePrefix)
+        {
+            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
+            routingConventions.Insert(0, new DynamicODataRoutingConvention());
+
             return MapDynamicODataServiceRoute(
                 routes,
                 routeName,
@@ -114,14 +156,14 @@ namespace maskx.OData
         }
         internal static IEdmType GetEdmType(this ODataPath path)
         {
-            return path.Segments[0].GetEdmType(path.EdmType);
+            return path.Segments[0].EdmType;
 
         }
         internal static IEdmType GetEdmType(this HttpRequestMessage requset)
         {
             var path = requset.ODataProperties().Path;
             return path.GetEdmType();
-        }  
+        }
         internal static object ChangeType(this object v, Type t)
         {
             if (v == null || Convert.IsDBNull(v))
@@ -136,8 +178,7 @@ namespace maskx.OData
                 {
                     if (t == typeof(Guid))
                     {
-                        Guid g;
-                        if (Guid.TryParse(v.ToString(), out g))
+                        if (Guid.TryParse(v.ToString(), out Guid g))
                             return g;
                     }
                 }
