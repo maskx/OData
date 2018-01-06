@@ -1,0 +1,31 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using Xunit;
+using Test;
+
+namespace Action
+{
+    [Collection("WebHost collection")]
+    public class Action
+    {
+        [Fact]
+        public void NoParameterSuccess()
+        {
+            var rtv = Common.Post("GetEdmModelInfo()", null);
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.Equal(2, rtv.Item2.Count);
+            Assert.EndsWith("$metadata#ns.GetEdmModelInfo_RtvType", rtv.Item2.Property("@odata.context").Value.ToString());
+        }
+        [Fact]
+        public void WithParameterSuccess()
+        {
+            var rtv = Common.Post("GetEdmSPResultSet()", new { Name = "GetEdmModelInfo" });
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.Equal(2, rtv.Item2.Count);
+            Assert.EndsWith("$metadata#ns.GetEdmSPResultSet_RtvType", rtv.Item2.Property("@odata.context").Value.ToString());
+        }
+    }
+}

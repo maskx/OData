@@ -1,8 +1,8 @@
-﻿using Microsoft.OData.Edm;
+﻿using Microsoft.AspNet.OData;
+using Microsoft.AspNet.OData.Query;
+using Microsoft.OData.Edm;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Web.OData;
-using System.Web.OData.Query;
 
 namespace maskx.OData
 {
@@ -14,6 +14,11 @@ namespace maskx.OData
         EdmEntityObjectCollection Get(ODataQueryOptions queryOptions);
         int GetCount(ODataQueryOptions queryOptions);
         EdmEntityObject Get(string key, ODataQueryOptions queryOptions);
+        /// <summary>
+        /// insert one row to table
+        /// </summary>
+        /// <param name="entity">the data of the row</param>
+        /// <returns>the identity of the new recorder</returns>
         string Create(IEdmEntityObject entity);
         int Delete(string key, IEdmType elementType);
         int Merge(string key, IEdmEntityObject entity);

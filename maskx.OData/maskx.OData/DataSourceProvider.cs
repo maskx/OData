@@ -4,12 +4,12 @@ using System.Collections.Generic;
 
 namespace maskx.OData
 {
-    public class DataSourceProvider
+    internal class DataSourceProvider
     {
         static Dictionary<string, IDataSource> DataSource = new Dictionary<string, IDataSource>();
-        public static void AddDataSource(IDataSource dataSource)
+        public static void AddDataSource(string key, IDataSource dataSource)
         {
-            DataSource.Add(dataSource.Name, dataSource);
+            DataSource.Add(key, dataSource);
         }
 
         public static IEdmModel GetEdmModel(string dataSourceName)
@@ -19,7 +19,7 @@ namespace maskx.OData
 
         public static IDataSource GetDataSource(string dataSourceName)
         {
-            dataSourceName = dataSourceName == null ? string.Empty : dataSourceName.ToLowerInvariant();
+            dataSourceName = dataSourceName == null ? string.Empty : dataSourceName;
             IDataSource ds = null;
             if (DataSource.TryGetValue(dataSourceName, out ds))
                 return ds;
@@ -27,6 +27,5 @@ namespace maskx.OData
                 string.Format("Data source: {0} is not registered.", dataSourceName));
 
         }
-
     }
 }

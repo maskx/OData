@@ -1,3 +1,5 @@
+[working stage]
+[update to Microsoft.AspNetCore.OData]
 
 # Introduction
 
@@ -27,33 +29,56 @@ those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you sh
 
 ### Configure the controller
 ```CSharp
- configuration.Routes.MapDynamicODataServiceRoute("odata","odata");
- DataSourceProvider.AddDataSource(new maskx.OData.Sql.SQLDataSource("db");
+	class Startup
+    {
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddOData();
+            services.AddMvc();
+        }
+        public void Configure(IApplicationBuilder app)
+        {
+            app.UseMvc(routeBuilder => {
+                routeBuilder.MapDynamicODataServiceRoute("odata",Common._RouterPrefix,
+                    new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
+            });
+        }
+    }
 ```
-the "db" is database connection string key in web.config
 
-### Configure database connection string in web.config
-```CSharp
-   <connectionStrings>
-    <add name="db" connectionString="Data Source=.;Initial Catalog=<your database>;Integrated Security=True" />
-  </connectionStrings>
-```
 # Usage
 now you can access the database object through the web API. you can visit this page for basic OData knowledge [http://www.odata.org/getting-started/understand-odata-in-6-steps/](http://www.odata.org/getting-started/understand-odata-in-6-steps/)
-## Table
-### Query
+
+## Requesting Entity Collections
+
 ```javascript
-  $.get('odata/db/<table>').done(function (data) {alert(data.value) });
+  $.get('odata/db/<table name>').done(function (data) {alert(data.value) });
+  $.get('odata/db/<view name>').done(function (data) {alert(data.value) });
+  $.get('odata/db/<Table-valued function name>()').done(function (data) {alert(data.value) });
 ```
 
+## Requesting an Individual Entity by ID
+```javascript
+  $.get('odata/db/<table name>(<the value of ID>)').done(function (data) {alert(data) });
+  $.get('odata/db/<view name>'(<the value of ID>)).done(function (data) {alert(data) });
+```
+
+## Requesting an Individual Property
+not support yet
+
+## Querying
 you can user 
 [$filter](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$filter_System), 
 [$orderby](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$orderby_System), 
 [$top](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$top_System_1), 
 [$skip](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$skip_System), 
-[$count](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$inlinecount_System) query option restricts the set of items returned
+[$count](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$inlinecount_System) 
+[$expand]()
+[$select]()
+[$search]()
 
-### Insert
+##Data Modification
+### Create an Entity
 
 ```javascript
   $.post('odata/db/<table>',{
@@ -62,7 +87,7 @@ you can user
     ...
   }).done(function (data) {alert(data.value) });
 ```
-### Update
+### Update an Entity
 ```javascript
   $.ajax({
     url:'odata/db/<table>(<ID>)',
@@ -74,7 +99,7 @@ you can user
     }
   }).done(function (data) {alert(data)});
 ```
-### Merge
+### Merge an Entity
 ``` javascript
 $.ajax({
     url:'odata/db/<table>(<ID>)',
@@ -86,7 +111,7 @@ $.ajax({
     }
   }).done(function (data) {alert(data)});
 ```
-### Delete
+### Delete an Entity
 ```javascript
   $.ajax({
     url:'odata/db/<table>(<ID>)',
@@ -121,17 +146,16 @@ $.ajax({
 SQLDataSource has a BeforeExcute property, you can judge user's permission in there
 
 ```csharp
-DataSourceProvider.AddDataSource(new maskx.OData.Sql.SQLDataSource(<DataSourceName>)
- {
+new maskx.OData.Sql.SQLDataSource(<DataSourceName>)
+{
    BeforeExcute = (ri) =>{
       if (ri.QueryOptions != null && ri.QueryOptions.SelectExpand != null) {
      
       }
       Console.WriteLine("BeforeExcute:{0}", ri.Target);
    }
- });
+ };
 ```
-
 
 ## Audit
 SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user's permission in there

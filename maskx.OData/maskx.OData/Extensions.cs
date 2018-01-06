@@ -1,168 +1,52 @@
-﻿using Microsoft.OData;
+﻿using Microsoft.AspNet.OData.Extensions;
+using Microsoft.AspNet.OData.Routing;
+using Microsoft.AspNet.OData.Routing.Conventions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.OData;
 using Microsoft.OData.Edm;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Web.Http;
-using System.Web.Http.Routing;
-using System.Web.OData.Batch;
-using System.Web.OData.Extensions;
-using System.Web.OData.Routing;
-using System.Web.OData.Routing.Conventions;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace maskx.OData
 {
     public static class Extensions
     {
-        public static ODataRoute MapDynamicODataServiceRoute(
-            this HttpConfiguration configuration,
-            string routeName,
-            string routePrefix,
-            IODataPathHandler pathHandler,
+        private static ODataRoute MapDynamicODataServiceRoute(this IRouteBuilder builder, string routeName,
+            string routePrefix, IODataPathHandler pathHandler,
             IEnumerable<IODataRoutingConvention> routingConventions,
-            ODataBatchHandler batchHandler)
+            IDataSource dataSource)
         {
-            return configuration.MapODataServiceRoute(routeName, routePrefix, (builder) =>
+            var odataRoute = builder.MapODataServiceRoute(routeName, routePrefix, containerBuilder =>
             {
-
-                builder.AddService(ServiceLifetime.Singleton, (sp) => pathHandler);
-                builder.AddService(ServiceLifetime.Singleton, (sp) => routingConventions);
-                builder.AddService(ServiceLifetime.Singleton, (sp) => batchHandler);
-                builder.AddService(ServiceLifetime.Singleton, (sp) =>
-                {
-                    IEdmModel model = DataSourceProvider.GetEdmModel(routeName);
-                    return model;
-                });
-                builder.AddService<IHttpRouteConstraint>(ServiceLifetime.Singleton, (sp) =>
-                {
-                    return new DynamicODataPathRouteConstraint(null,null,string.Empty,null);
-                });
+                containerBuilder
+                    .AddService<IEdmModel>(Microsoft.OData.ServiceLifetime.Singleton, sp =>
+                                       {
+                                           var b = DataSourceProvider.GetEdmModel(routePrefix);
+                                           return b;
+                                       })
+                    .AddService(Microsoft.OData.ServiceLifetime.Scoped, sp => routingConventions.ToList().AsEnumerable());
+                if (pathHandler != null)
+                    containerBuilder.AddService(Microsoft.OData.ServiceLifetime.Singleton, sp => pathHandler);
             });
-        }
-        public static ODataRoute MapDynamicODataServiceRoute(
-            this HttpConfiguration configuration,
-            string routeName,
-            string routePrefix)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-            return configuration.MapDynamicODataServiceRoute(
-                routeName,
-                routePrefix,
-                new DefaultODataPathHandler(),
-                routingConventions,
-                new DynamicODataBatchHandler(new ODataHttpServer(configuration)));
-        }
-        #region MapDynamicODataServiceRoute
-        public static ODataRoute MapDynamicODataServiceRoute(
-        this HttpRouteCollection routes,
-        string routeName,
-        string routePrefix)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-
-            return MapDynamicODataServiceRoute(
-                routes,
-                routeName,
-                routePrefix,
-                GetModelFuncFromRequest(),
-                new DefaultODataPathHandler(),
-                routingConventions,
-                batchHandler: null);
-        }
-        public static ODataRoute MapDynamicODataServiceRoute(
-           this HttpRouteCollection routes,
-           string routeName,
-           string routePrefix,
-           HttpServer httpServer)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-            return MapDynamicODataServiceRoute(
-                routes,
-                routeName,
-                routePrefix,
-                GetModelFuncFromRequest(),
-                new DefaultODataPathHandler(),
-                routingConventions,
-                batchHandler: new DynamicODataBatchHandler(httpServer));
-        }
-        public static ODataRoute MapDynamicODataServiceRoute(
-          this HttpRouteCollection routes,
-          string routeName,
-          string routePrefix,
-         HttpConfiguration config)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-            return MapDynamicODataServiceRoute(
-                routes,
-                routeName,
-                routePrefix,
-                GetModelFuncFromRequest(),
-                new DefaultODataPathHandler(),
-                routingConventions,
-                batchHandler: new DynamicODataBatchHandler(new ODataHttpServer(config)));
-        }
-        private static ODataRoute MapDynamicODataServiceRoute(
-            HttpRouteCollection routes,
-            string routeName,
-            string routePrefix,
-            Func<HttpRequestMessage, IEdmModel> modelProvider,
-            IODataPathHandler pathHandler,
-            IEnumerable<IODataRoutingConvention> routingConventions,
-            ODataBatchHandler batchHandler)
-        {
-            if (!string.IsNullOrEmpty(routePrefix))
-            {
-                int prefixLastIndex = routePrefix.Length - 1;
-                if (routePrefix[prefixLastIndex] == '/')
-                {
-                    routePrefix = routePrefix.Substring(0, routePrefix.Length - 1);
-                }
-            }
-            if (batchHandler != null)
-            {
-                batchHandler.ODataRouteName = routeName;
-                string batchTemplate = string.IsNullOrEmpty(routePrefix)
-                    ? ODataRouteConstants.Batch
-                    : routePrefix + '/' + ODataRouteConstants.Batch;
-                routes.MapHttpBatchRoute(routeName + "Batch", batchTemplate, batchHandler);
-            }
-            DynamicODataPathRouteConstraint routeConstraint = new DynamicODataPathRouteConstraint(
-                  pathHandler,
-                  modelProvider,
-                  routeName,
-                  routingConventions);
-            DynamicODataRoute odataRoute = new DynamicODataRoute(routePrefix, routeConstraint);
-            routes.Add(routeName, odataRoute);
-
+            DataSourceProvider.AddDataSource(routePrefix, dataSource);
+            builder.EnableDependencyInjection();
             return odataRoute;
         }
-        #endregion
-        internal static Func<HttpRequestMessage, IEdmModel> GetModelFuncFromRequest()
+        public static ODataRoute MapDynamicODataServiceRoute(this IRouteBuilder builder, string routeName, string routePrefix, IDataSource dataSource)
         {
-            return request =>
-            {
-                string odataPath = request.Properties[Constants.CustomODataPath] as string ?? string.Empty;
-                string[] segments = odataPath.Split('/');
-                string dataSource = segments[0];
-                request.Properties[Constants.ODataDataSource] = dataSource;
-                IEdmModel model = DataSourceProvider.GetEdmModel(dataSource);
-                request.Properties[Constants.CustomODataPath] = string.Join("/", segments, 1, segments.Length - 1);
-                return model;
-            };
+            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
+            routingConventions.Insert(0, new DynamicODataRoutingConvention());
+            return builder.MapDynamicODataServiceRoute(routeName, routePrefix, null, routingConventions, dataSource);
         }
         internal static IEdmType GetEdmType(this ODataPath path)
         {
             return path.Segments[0].EdmType;
 
-        }
-        internal static IEdmType GetEdmType(this HttpRequestMessage requset)
-        {
-            var path = requset.ODataProperties().Path;
-            return path.GetEdmType();
         }
         internal static object ChangeType(this object v, Type t)
         {
@@ -184,6 +68,10 @@ namespace maskx.OData
                 }
             }
             return null;
+        }
+        internal static object ChangeType(this object v, EdmPrimitiveTypeKind t)
+        {
+            return v.ChangeType(t.ToClrType());
         }
         internal static Type ToClrType(this EdmPrimitiveTypeKind t)
         {
@@ -262,10 +150,33 @@ namespace maskx.OData
             }
             return typeof(object);
         }
-
-        internal static object ChangeType(this object v, EdmPrimitiveTypeKind t)
+        /// <summary>
+        /// Retrieve the raw body as a string from the Request.Body stream
+        /// </summary>
+        /// <param name="request">Request instance to apply to</param>
+        /// <param name="encoding">Optional - Encoding, defaults to UTF8</param>
+        /// <returns></returns>
+        public static async Task<string> GetRawBodyStringAsync(this HttpRequest request, Encoding encoding = null)
         {
-            return v.ChangeType(t.ToClrType());
+            if (encoding == null)
+                encoding = Encoding.UTF8;
+
+            using (StreamReader reader = new StreamReader(request.Body, encoding))
+                return await reader.ReadToEndAsync();
+        }
+
+        /// <summary>
+        /// Retrieves the raw body as a byte array from the Request.Body stream
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        public static async Task<byte[]> GetRawBodyBytesAsync(this HttpRequest request)
+        {
+            using (var ms = new MemoryStream(2048))
+            {
+                await request.Body.CopyToAsync(ms);
+                return ms.ToArray();
+            }
         }
     }
 }

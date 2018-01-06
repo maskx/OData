@@ -1,7 +1,7 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Microsoft.AspNet.OData;
+using Microsoft.AspNet.OData.Query;
+using Newtonsoft.Json.Linq;
 using System.Net;
-using System.Web.OData;
-using System.Web.OData.Query;
 
 namespace maskx.OData
 {
