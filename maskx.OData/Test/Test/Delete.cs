@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using Xunit;
-using Test;
 
-namespace Delete
+namespace Test
 {
     [Collection("WebHost collection")]
+    [Trait("Category", "Delete")]
     public class Delete
     {
         [Fact]

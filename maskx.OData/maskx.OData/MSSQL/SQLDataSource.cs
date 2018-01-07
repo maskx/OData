@@ -40,7 +40,8 @@ namespace maskx.OData.Sql
         /// </summary>
         public string TableValuedResultSetCommand { get; private set; }
         public string UserDefinedTableCommand { get; private set; }
-        string ConnectionString;
+
+        readonly string ConnectionString;
 
         Dictionary<string, Dictionary<string, ParameterInfo>> ParameterInfos = new Dictionary<string, Dictionary<string, ParameterInfo>>();
         #endregion
@@ -102,7 +103,7 @@ namespace maskx.OData.Sql
                         }
                         else
                             t = edmSet.EntityType() as EdmEntityType;
-                       
+
                     }
                     var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                     if (et.HasValue)
@@ -159,7 +160,6 @@ namespace maskx.OData.Sql
             return new EdmCollectionTypeReference(new EdmCollectionType(etr));
         }
         /// <summary>
-        /// TODO: should move sp to action,and leave TableValueFunction in function 
         /// Actions can have side-effects. For example, Actions can be used to modify data or to invoke custom operations
         /// </summary>
         /// <param name="model"></param>
@@ -360,13 +360,17 @@ namespace maskx.OData.Sql
                         refrenceName = reader["RefrencedName"].ToString();
                         parent = model.FindDeclaredType(string.Format("ns.{0}", parentName)) as EdmEntityType;
                         refrence = model.FindDeclaredType(string.Format("ns.{0}", refrenceName)) as EdmEntityType;
-                        parentNav = new EdmNavigationPropertyInfo();
-                        parentNav.Name = parentName;
-                        parentNav.TargetMultiplicity = EdmMultiplicity.Many;
-                        parentNav.Target = parent;
-                        refrenceNav = new EdmNavigationPropertyInfo();
-                        refrenceNav.Name = refrenceName;
-                        refrenceNav.TargetMultiplicity = EdmMultiplicity.Many;
+                        parentNav = new EdmNavigationPropertyInfo
+                        {
+                            Name = parentName,
+                            TargetMultiplicity = EdmMultiplicity.Many,
+                            Target = parent
+                        };
+                        refrenceNav = new EdmNavigationPropertyInfo
+                        {
+                            Name = refrenceName,
+                            TargetMultiplicity = EdmMultiplicity.Many
+                        };
                         //refrenceNav.Target = refrence;
                         principalProperties = new List<IEdmStructuralProperty>();
                         dependentProperties = new List<IEdmStructuralProperty>();
@@ -427,14 +431,20 @@ namespace maskx.OData.Sql
             string top = string.Empty;
             string skip = string.Empty;
             string fetch = string.Empty;
-
+            string orderby = options.ParseOrderBy();
             if (options.Count == null && options.Top != null)
             {
                 if (options.Skip != null)
                 {
-                    skip = string.Format("OFFSET {0} ROWS", options.Skip.RawValue); 
+                    skip = string.Format("OFFSET {0} ROWS", options.Skip.RawValue);
                     fetch = string.Format("FETCH NEXT {0} ROWS ONLY", options.Top.RawValue);
                     top = string.Empty;
+                    if (string.IsNullOrEmpty(orderby))
+                    {
+                        var entityType = cxt.ElementType as EdmEntityType;
+                        var keyDefine = entityType.DeclaredKey.First();
+                        orderby = string.Format(" order by [{0}] ", keyDefine.Name);
+                    }
                 }
                 else
                     top = "top " + options.Top.RawValue;
@@ -445,7 +455,7 @@ namespace maskx.OData.Sql
                 , options.ParseSelect()
                 , table
                 , options.ParseFilter(pars)
-                , options.ParseOrderBy()
+                , orderby
                 , skip
                 , fetch);
             return cmdtxt;
@@ -462,7 +472,7 @@ namespace maskx.OData.Sql
             {
                 if (expanded.SkipOption.HasValue)
                 {
-                    skip = string.Format("OFFSET {0} ROWS", expanded.SkipOption.Value); 
+                    skip = string.Format("OFFSET {0} ROWS", expanded.SkipOption.Value);
                     fetch = string.Format("FETCH NEXT {0} ROWS ONLY", expanded.TopOption.Value);
                     top = string.Empty;
                 }
@@ -523,7 +533,7 @@ namespace maskx.OData.Sql
         }
         static string BuildTVFTarget(IEdmFunction func, JObject parameterValues)
         {
-            //TODO: has sql injection issue
+            //TODO: SQL injection issue
             string templete = "[{0}]({1})";
             List<string> ps = new List<string>();
             foreach (var p in func.Parameters)
@@ -566,7 +576,7 @@ namespace maskx.OData.Sql
                                 colType = dt.Columns[col.Name].DataType;
                                 if (colType == typeof(Boolean))
                                 {
-                                    dr.SetField(col.Name, col.Value.ToString() == "0" ? false : true);
+                                    dr.SetField(col.Name, col.Value.ToString() != "0");
                                 }
                                 else
                                     dr.SetField(col.Name, col.Value.ToString().ChangeType(colType));
@@ -649,12 +659,16 @@ namespace maskx.OData.Sql
             List<string> pars = new List<string>();
             List<SqlParameter> sqlpars = new List<SqlParameter>();
             object v = null;
+            string safevar = string.Empty;
+            int index = 0;
             foreach (var p in (entity as Delta).GetChangedPropertyNames())
             {
                 entity.TryGetPropertyValue(p, out v);
                 cols.Add(string.Format("[{0}]", p));
-                pars.Add("@" + p);
-                sqlpars.Add(new SqlParameter("@" + p, v));
+                safevar = Utility.SafeSQLVar(p) + index;
+                pars.Add("@" + safevar);
+                sqlpars.Add(new SqlParameter("@" + safevar, v));
+                index++;
             }
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
@@ -690,7 +704,6 @@ namespace maskx.OData.Sql
             var entityType = cxt.ElementType as EdmEntityType;
             var table = entityType.Name;
             var edmType = cxt.Path.EdmType as IEdmCollectionType;
-       
 
             List<ExpandedNavigationSelectItem> expands = new List<ExpandedNavigationSelectItem>();
             if (queryOptions.SelectExpand != null)
@@ -719,6 +732,7 @@ namespace maskx.OData.Sql
                 , entityType.Name
                 , keyDefine.Name);
             EdmEntityObject entity = new EdmEntityObject(entityType);
+            bool needExpand = string.IsNullOrEmpty(queryOptions.SelectExpand.RawExpand);
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmdTxt,
@@ -728,6 +742,10 @@ namespace maskx.OData.Sql
                         {
                             reader.SetEntityPropertyValue(i, entity);
                         }
+                        if (needExpand)
+                        {
+                            Expand(entity, queryOptions.SelectExpand.SelectExpandClause);
+                        }
                     },
                     (par) =>
                     {
@@ -736,6 +754,86 @@ namespace maskx.OData.Sql
                     CommandType.Text);
             }
             return entity;
+        }
+        void Expand(EdmEntityObject edmEntity, SelectExpandClause expandClause)
+        {
+            foreach (var item1 in expandClause.SelectedItems)
+            {
+                var expanded = item1 as ExpandedNavigationSelectItem;
+                if (expanded == null)
+                    continue;
+                string cmdtxt = BuildExpandQueryString(edmEntity, expanded, out List<SqlParameter> pars);
+                EdmEntityObjectCollection collection = CreateExpandEntity(expanded, cmdtxt, pars);
+                edmEntity.TrySetPropertyValue(expanded.NavigationSource.Name, collection);
+            }
+        }
+        private EdmEntityObjectCollection CreateExpandEntity(ExpandedNavigationSelectItem expanded, string cmdtxt, List<SqlParameter> pars)
+        {
+            var edmType = expanded.NavigationSource.Type as IEdmCollectionType;
+            var entityType = edmType.ElementType.AsEntity();
+            EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
+            using (DbAccess db = new DbAccess(this.ConnectionString))
+            {
+                db.ExecuteReader(cmdtxt, (reader) =>
+                {
+                    EdmEntityObject entity = new EdmEntityObject(entityType);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        reader.SetEntityPropertyValue(i, entity);
+                    }
+                    Expand(entity, expanded.SelectAndExpand);
+                    collection.Add(entity);
+                }, (parbuilder) =>
+                {
+                    parbuilder.AddRange(pars.ToArray());
+                },
+                CommandType.Text);
+            }
+
+            return collection;
+        }
+
+        private static string BuildExpandQueryString(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, out List<SqlParameter> pars)
+        {
+            string cmdSql = "select {0} {1} from [{2}] where {3} {4} {5} {6}";
+            string table = string.Empty;
+            string top = string.Empty;
+            string skip = string.Empty;
+            string fetch = string.Empty;
+            string where = string.Empty;
+            string safeVar = string.Empty;
+            pars = new List<SqlParameter>();
+            foreach (NavigationPropertySegment item2 in expanded.PathToNavigationProperty)
+            {
+                foreach (var p in item2.NavigationProperty.ReferentialConstraint.PropertyPairs)
+                {
+                    edmEntity.TryGetPropertyValue(p.DependentProperty.Name, out object v);
+                    safeVar = Utility.SafeSQLVar(p.DependentProperty.Name);
+                    pars.Add(new SqlParameter(safeVar, v));
+                }
+            }
+            where = string.Join("and", pars.ConvertAll<string>(p => p.ParameterName));
+            table = expanded.NavigationSource.Name;
+            if (!expanded.CountOption.HasValue && expanded.TopOption.HasValue)
+            {
+                if (expanded.SkipOption.HasValue)
+                {
+                    skip = string.Format("OFFSET {0} ROWS", expanded.SkipOption.Value);
+                    fetch = string.Format("FETCH NEXT {0} ROWS ONLY", expanded.TopOption.Value);
+                    top = string.Empty;
+                }
+                else
+                    top = "top " + expanded.TopOption.Value;
+            }
+            return string.Format(cmdSql
+                , top
+                , expanded.ParseSelect()
+                , table
+                , where
+                , expanded.ParseFilter(pars)
+                , expanded.ParseOrderBy()
+                , skip
+                , fetch);
         }
 
         public int GetCount(ODataQueryOptions queryOptions)
@@ -813,7 +911,7 @@ namespace maskx.OData.Sql
             object v = null;
             foreach (var p in (entity as Delta).GetChangedPropertyNames())
             {
-               if( entity.TryGetPropertyValue(p, out v))
+                if (entity.TryGetPropertyValue(p, out v))
                 {
                     cols.Add(string.Format("[{0}]=@{0}", p));
                     sqlpars.Add(new SqlParameter("@" + p, v));
@@ -853,12 +951,12 @@ namespace maskx.OData.Sql
                     if (keyDefine.Name == p.Name) continue;
                     cols.Add(string.Format("[{0}]=@{0}", p.Name));
                     sqlpars.Add(new SqlParameter("@" + p.Name, v));
-                } 
+                }
             }
             if (cols.Count == 0)
                 return 0;
             sqlpars.Add(new SqlParameter("@" + keyDefine.Name, key.ChangeType(keyDefine.Type.PrimitiveKind())));
-            
+
             int rtv;
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
@@ -877,8 +975,7 @@ namespace maskx.OData.Sql
             IEdmComplexType elementType = (colltype as IEdmCollectionType).ElementType.Definition as IEdmComplexType;
 
             EdmComplexObject rtv = new EdmComplexObject(edmType);
-            object obj;
-            rtv.TryGetPropertyValue("$result", out obj);
+            rtv.TryGetPropertyValue("$result", out object obj);
             EdmComplexObjectCollection collection = obj as EdmComplexObjectCollection;
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {

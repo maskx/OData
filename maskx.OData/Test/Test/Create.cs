@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using Xunit;
-using Test;
 
-namespace Create
+namespace Test
 {
     [Collection("WebHost collection")]
+    [Trait("Category", "Create")]
     public class Create
     {
         [Fact]

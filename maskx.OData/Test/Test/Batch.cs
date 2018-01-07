@@ -6,18 +6,21 @@ using Test;
 using Xunit;
 using System.Linq;
 
-namespace Batch
+namespace Test
 {
     [Collection("WebHost collection")]
+    [Trait("Category", "Batch")]
     public class Batch
     {
         [Fact]
+        
         public void Success()
         {
+            //TODO: Batch not support now
             HttpClient client = new HttpClient();
-            HttpRequestMessage batchRequest = new HttpRequestMessage(HttpMethod.Post, string.Format(Common.tpl, "$batch"));
-            AddRequest(batchRequest, HttpMethod.Get, string.Format(Common.tpl, "Tag"));
-            AddRequest(batchRequest, HttpMethod.Get, string.Format(Common.tpl, "AspNetUsers"));
+            HttpRequestMessage batchRequest = new HttpRequestMessage(HttpMethod.Post, string.Format(Common.Tpl, "$batch"));
+            AddRequest(batchRequest, HttpMethod.Get, string.Format(Common.Tpl, "Tag"));
+            AddRequest(batchRequest, HttpMethod.Get, string.Format(Common.Tpl, "AspNetUsers"));
             var batchResponse = client.SendAsync(batchRequest).Result;
             MultipartStreamProvider streamProvider = batchResponse.Content.ReadAsMultipartAsync().Result;
             foreach (var content in streamProvider.Contents)
@@ -30,7 +33,7 @@ namespace Batch
             }
 
         }
-        void AddRequest(HttpRequestMessage batchRequest, HttpMethod httpMethod, string url, object content = null)
+        static void AddRequest(HttpRequestMessage batchRequest, HttpMethod httpMethod, string url, object content = null)
         {
             if (batchRequest.Content == null)
             {

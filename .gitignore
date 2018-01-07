@@ -11,7 +11,8 @@ _[Ss]cripts
 *.exe
 *.dll
 *.nupkg
-*.sln.ide
+*.sln
+*.suo
 .nuget/
 _ReSharper.*/
 packages/

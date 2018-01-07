@@ -1,11 +1,16 @@
 ﻿using Microsoft.OData.Edm;
 using System;
 using System.Data;
+using System.Text.RegularExpressions;
 
 namespace maskx.OData.Sql
 {
     public class Utility
     {
+        public static string SafeSQLVar(string s)
+        {
+            return Regex.Replace(s,"[^a-zA-Z]", "");
+        }
         public static Type SqlType2CsharpType(SqlDbType sqlType)
         {
             switch (sqlType)

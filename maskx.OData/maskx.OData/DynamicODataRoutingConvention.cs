@@ -16,23 +16,11 @@ namespace maskx.OData
     {
         public IEnumerable<ControllerActionDescriptor> SelectAction(RouteContext routeContext)
         {
-            if (routeContext == null)
-            {
-                throw new ArgumentNullException(nameof(routeContext));
-            }
-
-            ODataPath odataPath = routeContext.HttpContext.ODataFeature().Path;
-            if (odataPath == null)
-            {
-                throw new ArgumentNullException("odataPath");
-            }
-            var p = routeContext.RouteData.Values["odatapath"].ToString();
-            //var ds = DataSourceProvider.GetDataSource(p.Split('/')[0]);
-            var name = routeContext.HttpContext.ODataFeature().RouteName;
+            var odataFeature = routeContext.HttpContext.ODataFeature();
             var router = routeContext.RouteData.Routers.First(r =>
               {
                   if (r is ODataRoute)
-                      return (r as ODataRoute).Name == name;
+                      return (r as ODataRoute).Name == odataFeature.RouteName;
                   return false;
               }) as ODataRoute;
             var ds = DataSourceProvider.GetDataSource(router.RoutePrefix);
@@ -46,7 +34,7 @@ namespace maskx.OData
                     .ActionDescriptors.Items.OfType<ControllerActionDescriptor>()
                     .Where(c => c.ControllerName == "DynamicOData");
             string actionName = string.Empty;
-            switch (odataPath.PathTemplate)
+            switch (odataFeature.Path.PathTemplate)
             {
                 case "~/unboundaction":
                     actionName = "DoAction";
@@ -72,6 +60,8 @@ namespace maskx.OData
                     }
                     break;
                 case "~/entityset/key":
+                case "~/entityset/key/property":
+                case "~/entityset/key/property/$value":
                     switch (routeContext.HttpContext.Request.Method)
                     {
                         case "DELETE":

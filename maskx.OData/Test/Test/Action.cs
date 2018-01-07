@@ -4,11 +4,11 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using Xunit;
-using Test;
 
-namespace Action
+namespace Test
 {
     [Collection("WebHost collection")]
+    [Trait("Category", "Action")]
     public class Action
     {
         [Fact]

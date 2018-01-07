@@ -18,7 +18,7 @@ namespace maskx.OData.Sql
         internal static string ParseSelect(this ODataQueryOptions options)
         {
             if (options.Count != null)
-                return "count(*)";
+                return "count(0)";
             if (options.SelectExpand == null)
                 return "*";
             if (options.SelectExpand.SelectExpandClause.AllSelected)
@@ -41,7 +41,7 @@ namespace maskx.OData.Sql
         internal static string ParseSelect(this ExpandedNavigationSelectItem expanded)
         {
             if (expanded.CountOption.HasValue)
-                return "count(*)";
+                return "count(0)";
             if (expanded.SelectAndExpand == null)
                 return "*";
             if (expanded.SelectAndExpand.AllSelected)

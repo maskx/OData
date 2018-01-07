@@ -2,55 +2,73 @@
 using System.Collections.Generic;
 using System.Text;
 using Xunit;
-using Test;
 using System.Net;
+using System.Net.Http;
 
-namespace Get
+namespace Test
 {
     [Collection("WebHost collection")]
+    [Trait("Category", "Get")]
     public class Get
     {
         [Fact]
-        public void Success()
+        public void GetSuccess()
         {
-            var rtv = Common.Get("Tag");
+            var rtv = Common.GetJObject("Tag");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Tag", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
-    }
-    [Collection("WebHost collection")]
-    public class GetByKey
-    {
         [Fact]
-        public void Success()
+        public void GetByKeySuccess()
         {
-            var rtv = Common.Get("Tag(1)");
+            var rtv = Common.GetJObject("Tag(1)");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Tag/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
-    }
-    [Collection("WebHost collection")]
-    public class GetProperty
-    {
         [Fact]
-        public void Success()
+        public void GetByKeyWithExpandSuccess()
+        {
+            //TODO: can not find pk of AspNetUsers, need investigation
+            //?$expand=AspNetUserRoles
+            var rtv = Common.GetJObject("AspNetUsers('3ceb1059-9953-4f77-bdc6-357db132500c')");
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.EndsWith("$metadata#Tag/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
+
+        }
+        [Fact]
+        public void GetPropertySuccess()
         {
             //TODO: not support now
             //~/entityset/key/property/
-            var rtv = Common.Get("Tag(1)/Name");
+            var rtv = Common.GetJObject("Tag(1)/Name");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Tag/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
-        public void SuccessRawValue()
+        public void GetPropertyRawValueSuccess()
         {
             //TODO: not support now
             //~/entityset/key/property/$value
-            var rtv = Common.Get("Tag(1)/Name/$value");
+            var rtv = Common.GetJObject("Tag(1)/Name/$value");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Tag/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
+        }
+        [Fact]
+        public void QueryServiceDocument()
+        {
+            var rtv = Common.GetJObject(string.Empty);
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.EndsWith("$metadata", rtv.Item2.Property("@odata.context").Value.ToString());
+        }
+        [Fact]
+        public void QueryMetadata()
+        {
+            var rtv = Common.GetContent("$metadata");
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.StartsWith("<", rtv.Item2);
+            Assert.EndsWith(">", rtv.Item2);
         }
     }
 }

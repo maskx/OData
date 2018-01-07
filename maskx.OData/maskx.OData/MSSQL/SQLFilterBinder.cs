@@ -41,6 +41,13 @@ namespace maskx.OData.Sql
             }
             return where;
         }
+        internal static string ParseFilter(this ExpandedNavigationSelectItem expanded, List<SqlParameter> pars)
+        {
+            string where = expanded.FilterOption.ParseFilter(pars);
+            if (string.IsNullOrEmpty(where))
+                return string.Empty;
+            return string.Format(" and ({0}) ",where);
+        }
         public static string ParseFilter(this FilterClause filterClause, List<SqlParameter> pars)
         {
             if (filterClause == null)
@@ -154,8 +161,8 @@ namespace maskx.OData.Sql
             object parValue = null;
             switch (singleValueFunctionCallNode.Name)
             {
-                case "concat":
-                    return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0], pars) + "," + Bind(arguments[1], pars) + ")";
+                case "concat"://TODO: SQL injection Issue
+                    return string.Format("concat({0},{1})", Bind(arguments[0], pars), Bind(arguments[1], pars));
                 case "contains":
                     name = Bind(arguments[0], pars);
                     parName = name + pars.Count;
@@ -215,7 +222,6 @@ namespace maskx.OData.Sql
         private static string BindPropertyAccessQueryNode(SingleValuePropertyAccessNode singleValuePropertyAccessNode)
         {
             return singleValuePropertyAccessNode.Property.Name;
-            //  return Bind(singleValuePropertyAccessNode.Source) + "." + singleValuePropertyAccessNode.Property.Name;
         }
 
         private static string BindRangeVariable(NonResourceRangeVariable nonentityRangeVariable)
