@@ -242,7 +242,6 @@ namespace maskx.OData.Sql
             outPars.Clear();
         }
 
-
         void AddTableValueFunction(string name, EdmModel model, Dictionary<string, IEdmTypeReference> pars)
         {
             var container = model.EntityContainer as EdmEntityContainer;
@@ -460,14 +459,29 @@ namespace maskx.OData.Sql
                 , fetch);
             return cmdtxt;
         }
-        internal virtual string BuildSqlQueryCmd(ExpandedNavigationSelectItem expanded, string condition, List<SqlParameter> pars)
+        internal virtual string BuildExpandQueryString(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, out List<SqlParameter> pars)
         {
-            string table = string.Format("[{0}]", expanded.NavigationSource.Name);
-            string cmdSql = "select {0} {1} from {2} {3} {4} {5} {6}";
+            string cmdSql = "select {0} {1} from [{2}] where {3} {4} {5} {6}";
+            string table = string.Empty;
             string top = string.Empty;
             string skip = string.Empty;
             string fetch = string.Empty;
-
+            string where = string.Empty;
+            string safeVar = string.Empty;
+            pars = new List<SqlParameter>();
+            var wp = new List<string>();
+            foreach (NavigationPropertySegment item2 in expanded.PathToNavigationProperty)
+            {
+                foreach (var p in item2.NavigationProperty.ReferentialConstraint.PropertyPairs)
+                {
+                    edmEntity.TryGetPropertyValue(p.DependentProperty.Name, out object v);
+                    safeVar = Utility.SafeSQLVar(p.PrincipalProperty.Name) + pars.Count;
+                    wp.Add(string.Format("[{0}]=@{1}", p.PrincipalProperty.Name, safeVar));
+                    pars.Add(new SqlParameter(safeVar, v));
+                }
+            }
+            where = string.Join("and", wp);
+            table = expanded.NavigationSource.Name;
             if (!expanded.CountOption.HasValue && expanded.TopOption.HasValue)
             {
                 if (expanded.SkipOption.HasValue)
@@ -479,58 +493,17 @@ namespace maskx.OData.Sql
                 else
                     top = "top " + expanded.TopOption.Value;
             }
-            var cmdtxt = string.Format(cmdSql
+            return string.Format(cmdSql
                 , top
                 , expanded.ParseSelect()
                 , table
-                , expanded.ParseFilter(condition, pars)
+                , where
+                , expanded.ParseFilter(pars)
                 , expanded.ParseOrderBy()
                 , skip
                 , fetch);
-            return cmdtxt;
         }
 
-        EdmEntityObjectCollection Get(IEdmCollectionType edmType, string sqlCmd, List<SqlParameter> pars, List<ExpandedNavigationSelectItem> expands = null)
-        {
-            var entityType = edmType.ElementType.AsEntity();
-            EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
-            using (DbAccess db = new DbAccess(this.ConnectionString))
-            {
-                db.ExecuteReader(sqlCmd, (reader) =>
-                {
-                    EdmEntityObject entity = new EdmEntityObject(entityType);
-                    for (int i = 0; i < reader.FieldCount; i++)
-                    {
-                        reader.SetEntityPropertyValue(i, entity);
-                    }
-                    if (expands != null)
-                    {
-                        foreach (var expanded in expands)
-                        {
-                            List<string> condition = new List<string>();
-                            foreach (NavigationPropertySegment item in expanded.PathToNavigationProperty)
-                            {
-                                foreach (var p in item.NavigationProperty.ReferentialConstraint.PropertyPairs)
-                                {
-                                    condition.Add(p.packCondition(reader[p.DependentProperty.Name]));
-                                }
-                            }
-                            List<SqlParameter> exPars = new List<SqlParameter>();
-                            string expandCmd = BuildSqlQueryCmd(expanded, string.Join(" and ", condition), exPars);
-                            var ss = Get(expanded.NavigationSource.Type as IEdmCollectionType, expandCmd, exPars);
-                            bool t = entity.TrySetPropertyValue(expanded.NavigationSource.Name, ss);
-                        }
-                    }
-                    collection.Add(entity);
-
-                }, (parbuilder) =>
-                {
-                    parbuilder.AddRange(pars.ToArray());
-                },
-                CommandType.Text);
-            }
-            return collection;
-        }
         static string BuildTVFTarget(IEdmFunction func, JObject parameterValues)
         {
             //TODO: SQL injection issue
@@ -704,21 +677,33 @@ namespace maskx.OData.Sql
             var entityType = cxt.ElementType as EdmEntityType;
             var table = entityType.Name;
             var edmType = cxt.Path.EdmType as IEdmCollectionType;
-
-            List<ExpandedNavigationSelectItem> expands = new List<ExpandedNavigationSelectItem>();
-            if (queryOptions.SelectExpand != null)
-            {
-                foreach (var item in queryOptions.SelectExpand.SelectExpandClause.SelectedItems)
-                {
-                    var expande = item as ExpandedNavigationSelectItem;
-                    if (expande == null)
-                        continue;
-                    expands.Add(expande);
-                }
-            }
             List<SqlParameter> pars = new List<SqlParameter>();
             string sqlCmd = BuildSqlQueryCmd(queryOptions, pars);
-            return Get(edmType, sqlCmd, pars, expands);
+            EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
+            bool needExpand = queryOptions.SelectExpand != null && !string.IsNullOrEmpty(queryOptions.SelectExpand.RawExpand);
+
+            using (DbAccess db = new DbAccess(this.ConnectionString))
+            {
+                db.ExecuteReader(sqlCmd, (reader) =>
+                {
+                    EdmEntityObject entity = new EdmEntityObject(entityType);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        reader.SetEntityPropertyValue(i, entity);
+                    }
+                    if (needExpand)
+                    {
+                        Expand(entity, queryOptions.SelectExpand.SelectExpandClause);
+                    }
+                    collection.Add(entity);
+
+                }, (parbuilder) =>
+                {
+                    parbuilder.AddRange(pars.ToArray());
+                },
+                CommandType.Text);
+            }
+            return collection;
         }
 
         public EdmEntityObject Get(string key, ODataQueryOptions queryOptions)
@@ -732,7 +717,7 @@ namespace maskx.OData.Sql
                 , entityType.Name
                 , keyDefine.Name);
             EdmEntityObject entity = new EdmEntityObject(entityType);
-            bool needExpand = string.IsNullOrEmpty(queryOptions.SelectExpand.RawExpand);
+            bool needExpand = queryOptions.SelectExpand != null && !string.IsNullOrEmpty(queryOptions.SelectExpand.RawExpand);
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmdTxt,
@@ -762,13 +747,12 @@ namespace maskx.OData.Sql
                 var expanded = item1 as ExpandedNavigationSelectItem;
                 if (expanded == null)
                     continue;
-                string cmdtxt = BuildExpandQueryString(edmEntity, expanded, out List<SqlParameter> pars);
-                EdmEntityObjectCollection collection = CreateExpandEntity(expanded, cmdtxt, pars);
-                edmEntity.TrySetPropertyValue(expanded.NavigationSource.Name, collection);
+                CreateExpandEntity(edmEntity, expanded);
             }
         }
-        private EdmEntityObjectCollection CreateExpandEntity(ExpandedNavigationSelectItem expanded, string cmdtxt, List<SqlParameter> pars)
+        private void CreateExpandEntity(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded)
         {
+            string cmdtxt = BuildExpandQueryString(edmEntity, expanded, out List<SqlParameter> pars);
             var edmType = expanded.NavigationSource.Type as IEdmCollectionType;
             var entityType = edmType.ElementType.AsEntity();
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
@@ -789,53 +773,8 @@ namespace maskx.OData.Sql
                 },
                 CommandType.Text);
             }
-
-            return collection;
+            edmEntity.TrySetPropertyValue(expanded.NavigationSource.Name, collection);
         }
-
-        private static string BuildExpandQueryString(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, out List<SqlParameter> pars)
-        {
-            string cmdSql = "select {0} {1} from [{2}] where {3} {4} {5} {6}";
-            string table = string.Empty;
-            string top = string.Empty;
-            string skip = string.Empty;
-            string fetch = string.Empty;
-            string where = string.Empty;
-            string safeVar = string.Empty;
-            pars = new List<SqlParameter>();
-            foreach (NavigationPropertySegment item2 in expanded.PathToNavigationProperty)
-            {
-                foreach (var p in item2.NavigationProperty.ReferentialConstraint.PropertyPairs)
-                {
-                    edmEntity.TryGetPropertyValue(p.DependentProperty.Name, out object v);
-                    safeVar = Utility.SafeSQLVar(p.DependentProperty.Name);
-                    pars.Add(new SqlParameter(safeVar, v));
-                }
-            }
-            where = string.Join("and", pars.ConvertAll<string>(p => p.ParameterName));
-            table = expanded.NavigationSource.Name;
-            if (!expanded.CountOption.HasValue && expanded.TopOption.HasValue)
-            {
-                if (expanded.SkipOption.HasValue)
-                {
-                    skip = string.Format("OFFSET {0} ROWS", expanded.SkipOption.Value);
-                    fetch = string.Format("FETCH NEXT {0} ROWS ONLY", expanded.TopOption.Value);
-                    top = string.Empty;
-                }
-                else
-                    top = "top " + expanded.TopOption.Value;
-            }
-            return string.Format(cmdSql
-                , top
-                , expanded.ParseSelect()
-                , table
-                , where
-                , expanded.ParseFilter(pars)
-                , expanded.ParseOrderBy()
-                , skip
-                , fetch);
-        }
-
         public int GetCount(ODataQueryOptions queryOptions)
         {
             var cxt = queryOptions.Context;
