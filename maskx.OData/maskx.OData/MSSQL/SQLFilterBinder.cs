@@ -46,7 +46,7 @@ namespace maskx.OData.Sql
             string where = expanded.FilterOption.ParseFilter(pars);
             if (string.IsNullOrEmpty(where))
                 return string.Empty;
-            return string.Format(" and ({0}) ",where);
+            return string.Format(" and ({0}) ", where);
         }
         public static string ParseFilter(this FilterClause filterClause, List<SqlParameter> pars)
         {
@@ -161,8 +161,16 @@ namespace maskx.OData.Sql
             object parValue = null;
             switch (singleValueFunctionCallNode.Name)
             {
-                case "concat"://TODO: SQL injection Issue
-                    return string.Format("concat({0},{1})", Bind(arguments[0], pars), Bind(arguments[1], pars));
+                case "concat":
+                    List<string> p = new List<string>();
+                    foreach (var item in arguments)
+                    {
+                        parValue = Bind(item, pars);
+                        parName = "p" + DateTime.Now.Ticks;
+                        p.Add("@" + parName);
+                        pars.Add(new SqlParameter(parName, parValue));
+                    }
+                    return string.Format("concat({0})", string.Join(",", p));
                 case "contains":
                     name = Bind(arguments[0], pars);
                     parName = name + pars.Count;
@@ -188,10 +196,25 @@ namespace maskx.OData.Sql
                     parName = name + pars.Count;
                     parValue = (arguments[1] as ConstantNode).Value;
                     pars.Add(new SqlParameter(parName, parValue.ToString()));
-                    return string.Format("charindex(@{0},{1}", parName, name);
+                    return string.Format("charindex(@{0},{1})", parName, name);
                 case "substring":
+                    parValue = Bind(arguments[0], pars);
+                    parName = "p" + DateTime.Now.Ticks;
+                    pars.Add(new SqlParameter(parName, parValue));
+                    return string.Format("SUBSTRING(@{0},{1},{2})",
+                        parName,
+                        (arguments[1] as ConstantNode).Value,
+                       arguments.Count > 2 ? (arguments[2] as ConstantNode).Value : 0);
                 case "tolower":
+                    parValue = Bind(arguments[0], pars);
+                    parName = "p" + DateTime.Now.Ticks;
+                    pars.Add(new SqlParameter(parName, parValue));
+                    return "LOWER(@" + parName + ")";                    
                 case "toupper":
+                    parValue = Bind(arguments[0], pars);
+                    parName = "p" + DateTime.Now.Ticks;
+                    pars.Add(new SqlParameter(parName, parValue));
+                    return "UPPER(@" + parName + ")";
                 case "trim":
                 case "year":
                 case "years":
@@ -208,7 +231,10 @@ namespace maskx.OData.Sql
                 case "round":
                 case "floor":
                 case "ceiling":
-                    return singleValueFunctionCallNode.Name + "(" + Bind(arguments[0], pars) + ")";
+                    parValue = Bind(arguments[0], pars);
+                    parName = "p" + DateTime.Now.Ticks;
+                    pars.Add(new SqlParameter(parName, parValue));
+                    return singleValueFunctionCallNode.Name + "(@" + parName + ")";
                 default:
                     throw new NotImplementedException();
             }

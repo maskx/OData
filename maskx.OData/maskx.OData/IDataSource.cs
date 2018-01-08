@@ -48,6 +48,6 @@ namespace maskx.OData
         IEdmObject DoAction(IEdmAction action, JObject parameterValues);
 
         Action<RequestInfo> BeforeExcute { get; set; }
-        Action<RequestInfo> AfrerExcute { get; set; }
+        Func<RequestInfo,object,object> AfrerExcute { get; set; }
     }
 }

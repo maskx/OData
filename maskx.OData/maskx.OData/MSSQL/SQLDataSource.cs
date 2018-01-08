@@ -504,21 +504,18 @@ namespace maskx.OData.Sql
                 , fetch);
         }
 
-        static string BuildTVFTarget(IEdmFunction func, JObject parameterValues)
+        static string BuildTVFTarget(IEdmFunction func, JObject parameterValues, out List<SqlParameter> sqlpars)
         {
-            //TODO: SQL injection issue
             string templete = "[{0}]({1})";
-            List<string> ps = new List<string>();
+            sqlpars = new List<SqlParameter>();
+            List<string> pars = new List<string>();
             foreach (var p in func.Parameters)
             {
-                if (p.Type.IsGuid()
-                || p.Type.IsString()
-                || p.Type.IsDateTimeOffset())
-                    ps.Add(string.Format("'{0}'", parameterValues[p.Name].ToString()));
-                else
-                    ps.Add(parameterValues[p.Name].ToString());
+                var safeVar = Utility.SafeSQLVar(p.Name) + sqlpars.Count;
+                var v = (parameterValues[p.Name] as JValue).Value.ChangeType(p.Type.PrimitiveKind());
+                sqlpars.Add(new SqlParameter(safeVar, v));
             }
-            return string.Format(templete, func.Name, string.Join(",", ps));
+            return string.Format(templete, func.Name, string.Join(",", sqlpars.ConvertAll<string>(p => "@" + p.ParameterName)));
         }
         void SetParameter(IEdmAction action, JObject parameterValues, SqlParameterCollection pars)
         {
@@ -620,7 +617,7 @@ namespace maskx.OData.Sql
         }
 
         public Action<RequestInfo> BeforeExcute { get; set; }
-        public Action<RequestInfo> AfrerExcute { get; set; }
+        public Func<RequestInfo, object, object> AfrerExcute { get; set; }
         public string Create(IEdmEntityObject entity)
         {
             var edmType = entity.GetEdmType();
@@ -798,14 +795,14 @@ namespace maskx.OData.Sql
         {
             int count = 0;
             IEdmType edmType = func.ReturnType.Definition;
-            var target = BuildTVFTarget(func, parameterValues);
-            List<SqlParameter> pars = new List<SqlParameter>();
-            var cmd = BuildSqlQueryCmd(queryOptions, pars, target);
+            var target = BuildTVFTarget(func, parameterValues, out List<SqlParameter> sqlpars);
+
+            var cmd = BuildSqlQueryCmd(queryOptions, sqlpars, target);
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 var r = db.ExecuteScalar(
                     cmd,
-                    (parBuider) => { parBuider.AddRange(pars.ToArray()); },
+                    (parBuider) => { parBuider.AddRange(sqlpars.ToArray()); },
                     CommandType.Text);
                 if (r != null)
                     count = (int)r;
@@ -818,9 +815,8 @@ namespace maskx.OData.Sql
             IEdmType edmType = func.ReturnType.Definition;
             IEdmType elementType = (edmType as IEdmCollectionType).ElementType.Definition;
             EdmComplexObjectCollection collection = new EdmComplexObjectCollection(new EdmCollectionTypeReference(edmType as IEdmCollectionType));
-            var target = BuildTVFTarget(func, parameterValues);
-            List<SqlParameter> pars = new List<SqlParameter>();
-            var cmd = BuildSqlQueryCmd(queryOptions, pars, target);
+            var target = BuildTVFTarget(func, parameterValues, out List<SqlParameter> sqlpars);
+            var cmd = BuildSqlQueryCmd(queryOptions, sqlpars, target);
             using (DbAccess db = new DbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmd, (reader) =>
@@ -832,7 +828,7 @@ namespace maskx.OData.Sql
                     }
                     collection.Add(entity);
                 },
-                (parBuilder) => { parBuilder.AddRange(pars.ToArray()); },
+                (parBuilder) => { parBuilder.AddRange(sqlpars.ToArray()); },
                 CommandType.Text);
             }
             return collection;

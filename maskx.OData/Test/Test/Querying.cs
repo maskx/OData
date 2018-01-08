@@ -18,6 +18,40 @@ namespace Test
             Assert.Equal(2, rtv.Item2.Count);
             Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
         }
+        [Fact]
+        public void Concat()
+        {
+            var rtv = Common.GetJObject("AspNetUsers?$filter=concat('Ad','min') eq UserName");
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.Equal(2, rtv.Item2.Count);
+            Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
+
+        }
+        [Fact]
+        public void Substring()
+        {
+            var rtv = Common.GetJObject("AspNetUsers?$filter=substring('Admin',0,6) eq UserName");
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.Equal(2, rtv.Item2.Count);
+            Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
+        }
+        [Fact]
+        public void tolower()
+        {
+            var rtv = Common.GetJObject("AspNetUsers?$filter=tolower('Admin') eq UserName");
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.Equal(2, rtv.Item2.Count);
+            Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
+        }
+        [Fact]
+        public void indexof()
+        {
+            var rtv = Common.GetJObject("AspNetUsers?$filter=indexof(UserName,'A') eq 1");
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.Equal(2, rtv.Item2.Count);
+            Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
+
+        }
     }
 
     [Collection("WebHost collection")]

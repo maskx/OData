@@ -11,11 +11,16 @@ namespace Test
     public class Delete
     {
         [Fact]
-        public void Success()
+        public void DeleteSuccess()
         {
             var rtv = Common.Delete("Tag(1)");
-            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#Edm.Int32", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.Equal(HttpStatusCode.NoContent, rtv.Item1);
+        }
+        [Fact]
+        public void DeleteNotExist()
+        {
+            var rtv = Common.Delete("Tag(199999)");
+            Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, rtv.Item1);
         }
     }
 }

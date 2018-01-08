@@ -30,12 +30,9 @@ namespace Test
         [Fact]
         public void GetByKeyWithExpandSuccess()
         {
-            //TODO: can not find pk of AspNetUsers, need investigation
-            //?$expand=AspNetUserRoles
             var rtv = Common.GetJObject("AspNetUsers('3ceb1059-9953-4f77-bdc6-357db132500c')?$expand=AspNetUserRoles");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#AspNetUsers/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
-
         }
         [Fact]
         public void GetPropertySuccess()
