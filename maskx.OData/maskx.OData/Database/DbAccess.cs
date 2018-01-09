@@ -4,31 +4,36 @@
 //---------------------------------------------------------------------------------------
 using System;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Threading;
 
-namespace maskx.OData.Sql
+namespace maskx.Database
 {
-    class DbAccess : IDisposable
+    class DbAccess<Tpar, TparCollection> : IDisposable
+        where Tpar : DbParameter
+        where TparCollection : DbParameterCollection
     {
         #region Memeber
-        SqlConnection _Connection;
+        DbProviderFactory _ProviderFactory;
+        DbConnection _Connection;
         const int _MaxRetryCount = 2;
         const int _IncreasingDelayRetry = 500;
         #endregion
 
         #region Construct
-        public DbAccess(string connectionString)
+        public DbAccess(DbConnection dbConnection)
         {
-            _Connection = new SqlConnection(connectionString);
+            _Connection = dbConnection;
             _Connection.Open();
         }
+
         #endregion
 
         #region Method
-        public SqlParameterCollection ExecuteReader(string commandText, Action<SqlDataReader> dataReader, Action<SqlParameterCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
+        public DbParameterCollection ExecuteReader(string commandText, Action<DbDataReader> dataReader, Action<DbParameterCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
-            using (SqlDataReader reader = CreateReader(commandText, commandTimeout, commandType, parametersBuilder, out SqlParameterCollection pars))
+            using (DbDataReader reader = CreateReader(commandText, commandTimeout, commandType, parametersBuilder, out DbParameterCollection pars))
             {
                 if (dataReader == null)
                     return pars;
@@ -38,7 +43,7 @@ namespace maskx.OData.Sql
                 return pars;
             }
         }
-        public object ExecuteScalar(string commandText, Action<SqlParameterCollection> parametersBuilder,
+        public object ExecuteScalar(string commandText, Action<DbParameterCollection> parametersBuilder,
            CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
             object rtv = 0;
@@ -61,7 +66,7 @@ namespace maskx.OData.Sql
 
             return rtv;
         }
-        public int ExecuteNonQuery(string commandText, Action<SqlParameterCollection> parametersBuilder,
+        public int ExecuteNonQuery(string commandText, Action<DbParameterCollection> parametersBuilder,
             CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
             int nAffectedRows = 0;
@@ -84,18 +89,18 @@ namespace maskx.OData.Sql
 
             return nAffectedRows;
         }
-        SqlDataReader CreateReader(string commandText
+        DbDataReader CreateReader(string commandText
             , int commandTimeout
             , CommandType commandType
-            , Action<SqlParameterCollection> parametersBuilder
-            , out SqlParameterCollection pars
+            , Action<DbParameterCollection> parametersBuilder
+            , out DbParameterCollection pars
             )
         {
             for (int retry = 0; ; retry++)
             {
                 try
                 {
-                    SqlCommand dbCmd = CreateCommand(commandText, commandTimeout, commandType, parametersBuilder);
+                    var dbCmd = CreateCommand(commandText, commandTimeout, commandType, parametersBuilder);
                     pars = dbCmd.Parameters;
                     return dbCmd.ExecuteReader(CommandBehavior.CloseConnection);
                 }
@@ -138,12 +143,12 @@ namespace maskx.OData.Sql
                     _Connection.Open();
                 }
         }
-        SqlCommand CreateCommand(string commandText, int commandTimeout, CommandType commandType, Action<SqlParameterCollection> parametersBuilder)
+        DbCommand CreateCommand(string commandText, int commandTimeout, CommandType commandType, Action<DbParameterCollection> parametersBuilder)
         {
             if (_Connection == null)
                 throw new ObjectDisposedException("DbAccess");
 
-            SqlCommand dbCommand = _Connection.CreateCommand();
+            var dbCommand = _Connection.CreateCommand();
             dbCommand.CommandType = commandType;
             dbCommand.CommandText = commandText;
 

@@ -87,7 +87,7 @@ namespace maskx.OData.Sql
             string tableName = string.Empty;
             EdmEntityType t = null;
             IEdmEntitySet edmSet = null;
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(ModelCommand, (reader) =>
                 {
@@ -140,7 +140,7 @@ namespace maskx.OData.Sql
             EdmComplexType t = null;
             t = new EdmComplexType("ns", spRtvTypeName);
 
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(StoredProcedureResultSetCommand, (reader) =>
                 {
@@ -154,7 +154,7 @@ namespace maskx.OData.Sql
                             throw new Exception(string.Format("{0} has wrong return type. see [exec GetEdmSPResultSet '{0}'] ", spName));
                         t.AddStructuralProperty(col, et.Value, true);
                     }
-                }, (par) => { par.AddWithValue("@Name", spName); });
+                }, (par) => { (par as SqlParameterCollection).AddWithValue("@Name", spName); });
             }
             var etr = new EdmComplexTypeReference(t, true);
             return new EdmCollectionTypeReference(new EdmCollectionType(etr));
@@ -170,7 +170,7 @@ namespace maskx.OData.Sql
             Dictionary<string, IEdmTypeReference> pars = new Dictionary<string, IEdmTypeReference>();
             Dictionary<string, IEdmTypeReference> outPars = new Dictionary<string, IEdmTypeReference>();
             Dictionary<string, ParameterInfo> parsDic = new Dictionary<string, ParameterInfo>();
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(ActionCommand, (reader) =>
                 {
@@ -266,7 +266,7 @@ namespace maskx.OData.Sql
             string funcName = string.Empty;
             Dictionary<string, IEdmTypeReference> pars = new Dictionary<string, IEdmTypeReference>();
 
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(this.FunctionCommand, (reader) =>
                 {
@@ -302,7 +302,7 @@ namespace maskx.OData.Sql
             EdmComplexType t = null;
             t = new EdmComplexType("ns", spRtvTypeName);
 
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(this.TableValuedResultSetCommand, (reader) =>
                 {
@@ -312,7 +312,7 @@ namespace maskx.OData.Sql
                         string col = reader["COLUMN_NAME"].ToString();
                         t.AddStructuralProperty(col, et.Value, true);
                     }
-                }, (par) => { par.AddWithValue("@Name", name); });
+                }, (par) => { (par as SqlParameterCollection).AddWithValue("@Name", name); });
             }
             var etr = new EdmComplexTypeReference(t, true);
             var t1 = new EdmCollectionTypeReference(new EdmCollectionType(etr));
@@ -334,7 +334,7 @@ namespace maskx.OData.Sql
             List<IEdmStructuralProperty> principalProperties = null;
             List<IEdmStructuralProperty> dependentProperties = null;
 
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(this.RelationCommand, (reader) =>
                 {
@@ -401,7 +401,7 @@ namespace maskx.OData.Sql
 
             string cNmae = string.Empty;
 
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(this.UserDefinedTableCommand, (reader) =>
                 {
@@ -414,7 +414,7 @@ namespace maskx.OData.Sql
 
                 }, (pars) =>
                 {
-                    pars.AddWithValue("name", name);
+                    (pars as SqlParameterCollection).AddWithValue("name", name);
                 });
             }
             return new EdmComplexTypeReference(root, true);
@@ -640,7 +640,7 @@ namespace maskx.OData.Sql
                 sqlpars.Add(new SqlParameter("@" + safevar, v));
                 index++;
             }
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 rtv = db.ExecuteScalar(string.Format(cmdTemplate, table, string.Join(", ", cols), string.Join(", ", pars))
                     , (dbpars) =>
@@ -657,12 +657,12 @@ namespace maskx.OData.Sql
 
             var keyDefine = entityType.DeclaredKey.First();
             int rtv = 0;
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 rtv = db.ExecuteNonQuery(string.Format("delete {0}  where [{1}]=@{1}", entityType.Name, keyDefine.Name)
-                      , (dbpars) =>
+                      , (pars) =>
                       {
-                          dbpars.AddWithValue("@" + keyDefine.Name, key.ChangeType((keyDefine.Type.PrimitiveKind())));
+                          (pars as SqlParameterCollection).AddWithValue("@" + keyDefine.Name, key.ChangeType((keyDefine.Type.PrimitiveKind())));
                       }, CommandType.Text);
             }
             return rtv;
@@ -679,7 +679,7 @@ namespace maskx.OData.Sql
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
             bool needExpand = queryOptions.SelectExpand != null && !string.IsNullOrEmpty(queryOptions.SelectExpand.RawExpand);
 
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(sqlCmd, (reader) =>
                 {
@@ -715,7 +715,7 @@ namespace maskx.OData.Sql
                 , keyDefine.Name);
             EdmEntityObject entity = new EdmEntityObject(entityType);
             bool needExpand = queryOptions.SelectExpand != null && !string.IsNullOrEmpty(queryOptions.SelectExpand.RawExpand);
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmdTxt,
                     (reader) =>
@@ -731,7 +731,7 @@ namespace maskx.OData.Sql
                     },
                     (par) =>
                     {
-                        par.AddWithValue("@" + keyDefine.Name, key.ChangeType(keyDefine.Type.PrimitiveKind()));
+                        (par as SqlParameterCollection).AddWithValue("@" + keyDefine.Name, key.ChangeType(keyDefine.Type.PrimitiveKind()));
                     },
                     CommandType.Text);
             }
@@ -753,7 +753,7 @@ namespace maskx.OData.Sql
             var edmType = expanded.NavigationSource.Type as IEdmCollectionType;
             var entityType = edmType.ElementType.AsEntity();
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmdtxt, (reader) =>
                 {
@@ -780,7 +780,7 @@ namespace maskx.OData.Sql
             object rtv = null;
             List<SqlParameter> pars = new List<SqlParameter>();
             string sqlCmd = BuildSqlQueryCmd(queryOptions, pars);
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 rtv = db.ExecuteScalar(sqlCmd,
                     (parBuilder) => { parBuilder.AddRange(pars.ToArray()); },
@@ -798,7 +798,7 @@ namespace maskx.OData.Sql
             var target = BuildTVFTarget(func, parameterValues, out List<SqlParameter> sqlpars);
 
             var cmd = BuildSqlQueryCmd(queryOptions, sqlpars, target);
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 var r = db.ExecuteScalar(
                     cmd,
@@ -817,7 +817,7 @@ namespace maskx.OData.Sql
             EdmComplexObjectCollection collection = new EdmComplexObjectCollection(new EdmCollectionTypeReference(edmType as IEdmCollectionType));
             var target = BuildTVFTarget(func, parameterValues, out List<SqlParameter> sqlpars);
             var cmd = BuildSqlQueryCmd(queryOptions, sqlpars, target);
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmd, (reader) =>
                 {
@@ -856,7 +856,7 @@ namespace maskx.OData.Sql
                 return 0;
             sqlpars.Add(new SqlParameter("@" + keyDefine.Name, key.ChangeType(keyDefine.Type.PrimitiveKind())));
             int rtv;
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 rtv = db.ExecuteNonQuery(string.Format(cmdTemplate, entityType.Name, string.Join(", ", cols), keyDefine.Name)
                     , (dbpars) =>
@@ -893,7 +893,7 @@ namespace maskx.OData.Sql
             sqlpars.Add(new SqlParameter("@" + keyDefine.Name, key.ChangeType(keyDefine.Type.PrimitiveKind())));
 
             int rtv;
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 rtv = db.ExecuteNonQuery(string.Format(cmdTemplate, entityType.Name, string.Join(", ", cols), keyDefine.Name)
                     , (dbpars) =>
@@ -912,7 +912,7 @@ namespace maskx.OData.Sql
             EdmComplexObject rtv = new EdmComplexObject(edmType);
             rtv.TryGetPropertyValue("$result", out object obj);
             EdmComplexObjectCollection collection = obj as EdmComplexObjectCollection;
-            using (DbAccess db = new DbAccess(this.ConnectionString))
+            using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 var par = db.ExecuteReader(action.Name, (reader) =>
                    {
@@ -924,7 +924,7 @@ namespace maskx.OData.Sql
                        collection.Add(entity);
                    }, (pars) =>
                    {
-                       SetParameter(action, parameterValues, pars);
+                       SetParameter(action, parameterValues, (pars as SqlParameterCollection));
                    });
                 foreach (var outp in edmType.Properties())
                 {
