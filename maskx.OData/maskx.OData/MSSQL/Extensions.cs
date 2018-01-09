@@ -79,15 +79,6 @@ namespace maskx.OData.Sql
                 entity.TrySetPropertyValue(name, reader.GetValue(fieldIndex));
             }
         }
-        internal static string packCondition(this EdmReferentialConstraintPropertyPair pair, object value)
-        {
-            string w = "[{0}]={1}";
-            var t = pair.DependentProperty.Type;
-            if (t.IsGuid()
-                || t.IsString()
-                || t.IsDateTimeOffset())
-                w = "[{0}]='{1}'";
-            return string.Format(w, pair.PrincipalProperty.Name, value);
-        }
+       
     }
 }

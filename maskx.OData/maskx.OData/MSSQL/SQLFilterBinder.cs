@@ -23,24 +23,6 @@ namespace maskx.OData.Sql
                 where = " where " + where;
             return where;
         }
-        internal static string ParseFilter(this ExpandedNavigationSelectItem expanded, string condition, List<SqlParameter> pars)
-        {
-            string where = expanded.FilterOption.ParseFilter(pars);
-            if (string.IsNullOrEmpty(where))
-            {
-                where = condition;
-            }
-            else if (!string.IsNullOrEmpty(condition))
-            {
-                where = string.Format("({0}) and ({1})", condition, where);
-            }
-
-            if (!string.IsNullOrEmpty(where))
-            {
-                where = " where " + where;
-            }
-            return where;
-        }
         internal static string ParseFilter(this ExpandedNavigationSelectItem expanded, List<SqlParameter> pars)
         {
             string where = expanded.FilterOption.ParseFilter(pars);
@@ -209,7 +191,7 @@ namespace maskx.OData.Sql
                     parValue = Bind(arguments[0], pars);
                     parName = "p" + DateTime.Now.Ticks;
                     pars.Add(new SqlParameter(parName, parValue));
-                    return "LOWER(@" + parName + ")";                    
+                    return "LOWER(@" + parName + ")";
                 case "toupper":
                     parValue = Bind(arguments[0], pars);
                     parName = "p" + DateTime.Now.Ticks;
