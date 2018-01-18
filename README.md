@@ -12,8 +12,7 @@ the web API is followed the OData protocol ([http://www.odata.org/](http://www.o
 # Install
 
 ## Database setup
-In your database execute the database initial script, the initial script locate at folder 'Sql/initialScript/' 
-[https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012](https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012)
+In your database execute the database initial script, the initial script locate at folder ['Sql/initialScript/'](https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012)
 
 those scripts will create the stored procedures query the database schema for build web API
 ~ Note
@@ -39,7 +38,7 @@ those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you sh
         public void Configure(IApplicationBuilder app)
         {
             app.UseMvc(routeBuilder => {
-                routeBuilder.MapDynamicODataServiceRoute("odata",Common._RouterPrefix,
+                routeBuilder.MapDynamicODataServiceRoute("odata","db",
                     new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
             });
         }
@@ -52,15 +51,15 @@ now you can access the database object through the web API. you can visit this p
 ## Requesting Entity Collections
 
 ```javascript
-  $.get('odata/db/<table name>').done(function (data) {alert(data.value) });
-  $.get('odata/db/<view name>').done(function (data) {alert(data.value) });
-  $.get('odata/db/<Table-valued function name>()').done(function (data) {alert(data.value) });
+  $.get('db/<table name>').done(function (data) {alert(data.value) });
+  $.get('db/<view name>').done(function (data) {alert(data.value) });
+  $.get('db/<Table-valued function name>()').done(function (data) {alert(data.value) });
 ```
 
 ## Requesting an Individual Entity by ID
 ```javascript
-  $.get('odata/db/<table name>(<the value of ID>)').done(function (data) {alert(data) });
-  $.get('odata/db/<view name>'(<the value of ID>)).done(function (data) {alert(data) });
+  $.get('db/<table name>(<the value of ID>)').done(function (data) {alert(data) });
+  $.get('db/<view name>'(<the value of ID>)).done(function (data) {alert(data) });
 ```
 
 ## Requesting an Individual Property
@@ -81,7 +80,7 @@ you can user
 ### Create an Entity
 
 ```javascript
-  $.post('odata/db/<table>',{
+  $.post('db/<table>',{
     'col1':'col1 value',
     'col2':'col2 value',
     ...
@@ -90,7 +89,7 @@ you can user
 ### Update an Entity
 ```javascript
   $.ajax({
-    url:'odata/db/<table>(<ID>)',
+    url:'db/<table>(<ID>)',
     type:'PUT',
     data:{
       'col1':'col1 value',
@@ -102,7 +101,7 @@ you can user
 ### Merge an Entity
 ``` javascript
 $.ajax({
-    url:'odata/db/<table>(<ID>)',
+    url:'db/<table>(<ID>)',
     type:'PATCH',
     data:{
       'col1':'col1 value',
@@ -114,18 +113,18 @@ $.ajax({
 ### Delete an Entity
 ```javascript
   $.ajax({
-    url:'odata/db/<table>(<ID>)',
+    url:'db/<table>(<ID>)',
     type:'DELETE'
   }).done(function (data) {alert(data) });
 ```
 ##  View
   for view, only can query support 
 ```javascript
-    $.get('odata/db/<view>').done(function (data) {alert(data.value) });
+    $.get('db/<view>').done(function (data) {alert(data.value) });
 ```
 ## Stored procedure
 ```javascript
- $.post('odata/db/<Stroed procedure name >()',{
+ $.post('db/<Stroed procedure name >()',{
     'par1':'par1 value',
     'par2':'par2 value',
     ...
@@ -135,11 +134,11 @@ $.ajax({
 
 ## Table-valued function
 ```javascript
-   $.get('odata/db/<table-valued function name>()').done(function (data) {alert(data.value) });
+   $.get('db/<table-valued function name>()').done(function (data) {alert(data.value) });
 ```
 ***Parameter***
 ```javascript
-   $.get('odata/db/<table-valued function name>(ParameterName1=arameterValue1，ParameterName2=ParameterValue2)')
+   $.get('db/<table-valued function name>(ParameterName1=arameterValue1，ParameterName2=ParameterValue2)')
    .done(function (data) {alert(data.value) });
 ```
 ## Security
