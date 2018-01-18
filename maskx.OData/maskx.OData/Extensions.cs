@@ -109,7 +109,7 @@ namespace maskx.OData
                     containerBuilder.AddService(Microsoft.OData.ServiceLifetime.Singleton, sp => pathHandler);
             });
             DataSourceProvider.AddDataSource(routePrefix, dataSource);
-            builder.EnableDependencyInjection();
+           
             return odataRoute;
         }
         public static ODataRoute MapDynamicODataServiceRoute(this IRouteBuilder builder, string routeName, string routePrefix, IDataSource dataSource)
