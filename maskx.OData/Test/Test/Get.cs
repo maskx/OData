@@ -14,9 +14,17 @@ namespace Test
         [Fact]
         public void GetSuccess()
         {
-            var rtv = Common.GetJObject("dbo.Tag");
+            var rtv = Common.GetJObject("Tag");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Tag", rtv.Item2.Property("@odata.context").Value.ToString());
+
+        }
+        [Fact]
+        public void GetWithSchemaSuccess()
+        {
+            var rtv = Common.GetJObject("dbo.Tag");
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.EndsWith("$metadata#dbo.Tag", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
         [Fact]

@@ -8,6 +8,7 @@ namespace maskx.OData
 {
     public interface IDataSource
     {
+        Configuration Configuration { get; set; }
         string Name { get; }
         EdmModel Model { get; }
 
@@ -48,6 +49,6 @@ namespace maskx.OData
         IEdmObject DoAction(IEdmAction action, JObject parameterValues);
 
         Action<RequestInfo> BeforeExcute { get; set; }
-        Func<RequestInfo,object,object> AfrerExcute { get; set; }
+        Func<RequestInfo, object, object> AfrerExcute { get; set; }
     }
 }

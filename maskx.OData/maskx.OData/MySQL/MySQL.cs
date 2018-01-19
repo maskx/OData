@@ -11,6 +11,7 @@ namespace maskx.OData.Sql
 {
     public class MySQL : IDataSource
     {
+        public Configuration Configuration { get; set; }
         readonly string ConnectionString;
         public string ModelCommand { get; private set; }
         private EdmModel BuildEdmModel()

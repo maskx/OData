@@ -58,6 +58,7 @@ namespace maskx.OData.Sql
         {
             this.Name = name;
             this.ConnectionString = connectionString;
+            this.Configuration = new Configuration();
             ModelCommand = modelCommand;
             ActionCommand = actionCommand;
             FunctionCommand = functionCommand;
@@ -66,7 +67,6 @@ namespace maskx.OData.Sql
             UserDefinedTableCommand = userDefinedTableCommand;
             TableValuedResultSetCommand = tableValuedResultSetCommand;
         }
-
         #endregion
 
         #region method
@@ -83,7 +83,7 @@ namespace maskx.OData.Sql
             var container = new EdmEntityContainer("ns", dbName);
             model.AddElement(container);
             AddEdmElement(model);
-            //AddEdmAction(model);
+            AddEdmAction(model);
             //AddTableValueFunction(model);
             //BuildRelation(model);
             return model;
@@ -102,15 +102,18 @@ namespace maskx.OData.Sql
                 {
                     tableName = reader["TABLE_NAME"].ToString();
                     schemaName = reader["SCHEMA_NAME"].ToString();
-                    entityName =string.Format("{0}.{1}", schemaName,tableName);
-                    if (t == null || t.Name != tableName || t.Namespace!=schemaName)
+                    entityName = schemaName == Configuration.DefaultSchema ? tableName : string.Format("{0}.{1}", schemaName, tableName);
+                    if (t == null || t.Name != tableName || t.Namespace != schemaName)
                     {
+                        var d = model.FindDeclaredType(string.Format("{0}.{1}", schemaName, tableName));
                         edmSet = container.FindEntitySet(entityName);
                         if (edmSet == null)
                         {
                             t = new EdmEntityType(schemaName, tableName);
                             model.AddElement(t);
                             container.AddEntitySet(entityName, t);
+                            if (schemaName == Configuration.DefaultSchema)
+                                container.AddEntitySet(string.Format("{0}.{1}", schemaName, tableName), t);
                         }
                         else
                             t = edmSet.EntityType() as EdmEntityType;
@@ -177,6 +180,7 @@ namespace maskx.OData.Sql
         {
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
             string currentName = string.Empty;
+            string currentNs = string.Empty;
             Dictionary<string, IEdmTypeReference> pars = new Dictionary<string, IEdmTypeReference>();
             Dictionary<string, IEdmTypeReference> outPars = new Dictionary<string, IEdmTypeReference>();
             Dictionary<string, ParameterInfo> parsDic = new Dictionary<string, ParameterInfo>();
@@ -185,17 +189,17 @@ namespace maskx.OData.Sql
                 db.ExecuteReader(ActionCommand, (reader) =>
                 {
                     string spName = reader["SPECIFIC_NAME"].ToString();
-                    if (currentName != spName)
+                    string ns = reader["SCHEMA_NAME"].ToString();
+                    if ( currentName != spName || currentNs != ns)
                     {
-                        if (!string.IsNullOrEmpty(currentName))
-                        {
-                            AddEdmAction(currentName, model, pars, outPars);
-                            this.ParameterInfos.Add(currentName, parsDic);
-                            parsDic = new Dictionary<string, ParameterInfo>();
-                        }
                         currentName = spName;
+                        currentNs = ns;
+                        AddEdmAction(ns, currentName, model, pars, outPars);
+                        parsDic = new Dictionary<string, ParameterInfo>();
+                        this.ParameterInfos.Add(currentName, parsDic);
+                        
                     }
-                    if (!reader.IsDBNull("DATA_TYPE"))
+                    if (!reader.IsDBNull("DATA_TYPE"))//some stored procedures have not parameters
                     {
                         var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                         if (et.HasValue)
@@ -228,26 +232,24 @@ namespace maskx.OData.Sql
                         }
                     }
                 });
-                AddEdmAction(currentName, model, pars, outPars);
-                this.ParameterInfos.Add(currentName, parsDic);
-                parsDic = new Dictionary<string, ParameterInfo>();
             }
         }
-        void AddEdmAction(string spName,
+        void AddEdmAction(string nameSpace, string spName,
            EdmModel model,
            Dictionary<string, IEdmTypeReference> pars,
            Dictionary<string, IEdmTypeReference> outPars)
         {
             IEdmTypeReference t = BuildSPReturnType(spName, model, outPars);
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
-            var action = new EdmAction(container.Namespace, spName, t, false, null);
+            var action = new EdmAction(nameSpace, spName, t, false, null);
             foreach (var item in pars)
             {
                 action.AddParameter(item.Key, item.Value);
             }
             model.AddElement(action);
-            container.AddActionImport(action.Name, action, null);
-
+            if (action.Namespace == Configuration.DefaultSchema)
+                container.AddActionImport(action.Name, action, null);
+            container.AddActionImport(string.Format("{0}.{1}", action.Namespace, action.Name), action, null);
             pars.Clear();
             outPars.Clear();
         }
@@ -427,9 +429,9 @@ namespace maskx.OData.Sql
             if (string.IsNullOrEmpty(target))
             {
                 var t = cxt.ElementType as EdmEntityType;
-                table = string.Format("{0}.[{1}]", t.Namespace,t.Name);
+                table = string.Format("{0}.[{1}]", t.Namespace, t.Name);
             }
-                
+
             string cmdSql = "select {0} {1} from {2} {3} {4} {5} {6}";
             string top = string.Empty;
             string skip = string.Empty;
@@ -596,6 +598,7 @@ namespace maskx.OData.Sql
         #region IDataSource
         EdmModel _Model;
         readonly object _ModelLocker = new object();
+        public Configuration Configuration { get; set; }
         public EdmModel Model
         {
             get
