@@ -73,18 +73,27 @@ namespace maskx.OData.Sql
         private EdmModel BuildEdmModel()
         {
             var model = new EdmModel();
-            var container = new EdmEntityContainer("ns", "container");
+            string dbName = string.Empty;
+            using (SqlConnection conn = new SqlConnection(ConnectionString))
+            {
+                conn.Open();
+                dbName = conn.Database;
+                conn.Close();
+            }
+            var container = new EdmEntityContainer("ns", dbName);
             model.AddElement(container);
             AddEdmElement(model);
-            AddEdmAction(model);
-            AddTableValueFunction(model);
-            BuildRelation(model);
+            //AddEdmAction(model);
+            //AddTableValueFunction(model);
+            //BuildRelation(model);
             return model;
         }
         void AddEdmElement(EdmModel model)
         {
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
             string tableName = string.Empty;
+            string schemaName = string.Empty;
+            string entityName = string.Empty;
             EdmEntityType t = null;
             IEdmEntitySet edmSet = null;
             using (var db = new MSSQLDbAccess(this.ConnectionString))
@@ -92,18 +101,19 @@ namespace maskx.OData.Sql
                 db.ExecuteReader(ModelCommand, (reader) =>
                 {
                     tableName = reader["TABLE_NAME"].ToString();
-                    if (t == null || t.Name != tableName)
+                    schemaName = reader["SCHEMA_NAME"].ToString();
+                    entityName =string.Format("{0}.{1}", schemaName,tableName);
+                    if (t == null || t.Name != tableName || t.Namespace!=schemaName)
                     {
-                        edmSet = container.FindEntitySet(tableName);
+                        edmSet = container.FindEntitySet(entityName);
                         if (edmSet == null)
                         {
-                            t = new EdmEntityType("ns", tableName);
+                            t = new EdmEntityType(schemaName, tableName);
                             model.AddElement(t);
-                            container.AddEntitySet(tableName, t);
+                            container.AddEntitySet(entityName, t);
                         }
                         else
                             t = edmSet.EntityType() as EdmEntityType;
-
                     }
                     var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                     if (et.HasValue)
@@ -124,7 +134,7 @@ namespace maskx.OData.Sql
             var t = BuildSPReturnType(spName, model);
             model.AddElement((t.Definition as EdmCollectionType).ElementType.Definition as IEdmSchemaElement);
 
-            EdmComplexType root = new EdmComplexType("ns", spRtvTypeName);
+            EdmComplexType root = new EdmComplexType(model.EntityContainer.Namespace, spRtvTypeName);
             model.AddElement(root);
             foreach (var item in outPars)
             {
@@ -138,7 +148,7 @@ namespace maskx.OData.Sql
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
             string spRtvTypeName = string.Format("{0}_RtvCollectionType", spName);
             EdmComplexType t = null;
-            t = new EdmComplexType("ns", spRtvTypeName);
+            t = new EdmComplexType(model.EntityContainer.Namespace, spRtvTypeName);
 
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
@@ -300,7 +310,7 @@ namespace maskx.OData.Sql
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
             string spRtvTypeName = string.Format("{0}_RtvCollectionType", name);
             EdmComplexType t = null;
-            t = new EdmComplexType("ns", spRtvTypeName);
+            t = new EdmComplexType(model.EntityContainer.Namespace, spRtvTypeName);
 
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
@@ -323,14 +333,16 @@ namespace maskx.OData.Sql
 
         void BuildRelation(EdmModel model)
         {
+            string parentSchemaName = string.Empty;
+            string referenceSchemaName = string.Empty;
             string parentName = string.Empty;
-            string refrenceName = string.Empty;
+            string referencedName = string.Empty;
             string parentColName = string.Empty;
-            string refrenceColName = string.Empty;
+            string referenceColName = string.Empty;
             EdmEntityType parent = null;
             EdmEntityType refrence = null;
             EdmNavigationPropertyInfo parentNav = null;
-            EdmNavigationPropertyInfo refrenceNav = null;
+            EdmNavigationPropertyInfo referenceNav = null;
             List<IEdmStructuralProperty> principalProperties = null;
             List<IEdmStructuralProperty> dependentProperties = null;
 
@@ -338,61 +350,49 @@ namespace maskx.OData.Sql
             {
                 db.ExecuteReader(this.RelationCommand, (reader) =>
                 {
-                    if (parentName != reader["ParentName"].ToString() || refrenceName != reader["RefrencedName"].ToString())
+                    if (parentName != reader["Parent_Name"].ToString() || referencedName != reader["Refrenced_Name"].ToString())
                     {
-                        if (!string.IsNullOrEmpty(refrenceName))
+                        if (!string.IsNullOrEmpty(referencedName))
                         {
                             parentNav.PrincipalProperties = principalProperties;
                             parentNav.DependentProperties = dependentProperties;
-                            //var np = parent.AddBidirectionalNavigation(refrenceNav, parentNav);
-                            //var parentSet = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
-                            //var referenceSet = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
-                            //parentSet.AddNavigationTarget(np, referenceSet);
-                            var np = refrence.AddBidirectionalNavigation(parentNav, refrenceNav);
-                            var parentSet = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
-                            var referenceSet = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
+                            var np = refrence.AddBidirectionalNavigation(parentNav, referenceNav);
+                            var parentSet = model.EntityContainer.FindEntitySet(string.Format("{0}.{1}", parentSchemaName, parentName)) as EdmEntitySet;
+                            var referenceSet = model.EntityContainer.FindEntitySet(string.Format("{0}.{1}", referenceSchemaName, referencedName)) as EdmEntitySet;
                             referenceSet.AddNavigationTarget(np, parentSet);
-
-
                         }
-                        parentName = reader["ParentName"].ToString();
-                        refrenceName = reader["RefrencedName"].ToString();
-                        parent = model.FindDeclaredType(string.Format("ns.{0}", parentName)) as EdmEntityType;
-                        refrence = model.FindDeclaredType(string.Format("ns.{0}", refrenceName)) as EdmEntityType;
+                        parentName = reader["Parent_Name"].ToString();
+                        referencedName = reader["Refrenced_Name"].ToString();
+                        parentSchemaName = reader["Parent_Schema_Name"].ToString();
+                        referenceSchemaName = reader["Refrenced_Schema_Name"].ToString();
+                        parent = model.FindDeclaredType(string.Format("{0}.{1}", parentSchemaName, parentName)) as EdmEntityType;
+                        refrence = model.FindDeclaredType(string.Format("{0}.{1}", referenceSchemaName, referencedName)) as EdmEntityType;
                         parentNav = new EdmNavigationPropertyInfo
                         {
                             Name = parentName,
                             TargetMultiplicity = EdmMultiplicity.Many,
                             Target = parent
                         };
-                        refrenceNav = new EdmNavigationPropertyInfo
+                        referenceNav = new EdmNavigationPropertyInfo
                         {
-                            Name = refrenceName,
+                            Name = referencedName,
                             TargetMultiplicity = EdmMultiplicity.Many
                         };
-                        //refrenceNav.Target = refrence;
                         principalProperties = new List<IEdmStructuralProperty>();
                         dependentProperties = new List<IEdmStructuralProperty>();
                     }
-                    principalProperties.Add(parent.FindProperty(reader["ParentColumnName"].ToString()) as IEdmStructuralProperty);
-                    dependentProperties.Add(refrence.FindProperty(reader["RefreancedColumnName"].ToString()) as IEdmStructuralProperty);
+                    principalProperties.Add(parent.FindProperty(reader["Parent_Column_Name"].ToString()) as IEdmStructuralProperty);
+                    dependentProperties.Add(refrence.FindProperty(reader["Refreanced_Column_Name"].ToString()) as IEdmStructuralProperty);
                 }, null, CommandType.Text);
-                if (refrenceNav != null)
+                if (referenceNav != null)
                 {
                     parentNav.PrincipalProperties = principalProperties;
                     parentNav.DependentProperties = dependentProperties;
-
-                    //var np1 = parent.AddBidirectionalNavigation(refrenceNav, parentNav);
-                    //var parentSet1 = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
-                    //var referenceSet1 = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
-                    //parentSet1.AddNavigationTarget(np1, referenceSet1);
-
-                    var np1 = refrence.AddBidirectionalNavigation(parentNav, refrenceNav);
-                    var parentSet1 = model.EntityContainer.FindEntitySet(parentName) as EdmEntitySet;
-                    var referenceSet1 = model.EntityContainer.FindEntitySet(refrenceName) as EdmEntitySet;
+                    var np1 = refrence.AddBidirectionalNavigation(parentNav, referenceNav);
+                    var parentSet1 = model.EntityContainer.FindEntitySet(string.Format("{0}.{1}", parentSchemaName, parentName)) as EdmEntitySet;
+                    var referenceSet1 = model.EntityContainer.FindEntitySet(string.Format("{0}.{1}", referenceSchemaName, referencedName)) as EdmEntitySet;
                     referenceSet1.AddNavigationTarget(np1, parentSet1);
                 }
-
             }
         }
         EdmComplexTypeReference BuildUDTType(string name)
@@ -425,7 +425,11 @@ namespace maskx.OData.Sql
             var cxt = options.Context;
             string table = target;
             if (string.IsNullOrEmpty(target))
-                table = string.Format("[{0}]", cxt.Path.Segments[0].Identifier);
+            {
+                var t = cxt.ElementType as EdmEntityType;
+                table = string.Format("{0}.[{1}]", t.Namespace,t.Name);
+            }
+                
             string cmdSql = "select {0} {1} from {2} {3} {4} {5} {6}";
             string top = string.Empty;
             string skip = string.Empty;

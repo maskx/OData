@@ -10,7 +10,7 @@ namespace Test
     class Common
     {
         public static string _RouterPrefix = "ss";
-        public static int _Port = 5000;
+        public static int _Port = 5008;
         static Common()
         {
             Tpl = string.Format("http://{0}:{1}/{2}/{{0}}", IPAddress.Loopback, _Port, _RouterPrefix);
