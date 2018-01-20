@@ -1,34 +1,39 @@
-[working stage]
-[update to Microsoft.AspNetCore.OData]
+# maskx.OData
 
-# Introduction
+## [working stage]
 
-Dynamic generate OData Controller from SQL Server. 
-It expose the database to client through web API. 
-Through this generated web API, client can query/insert/delete/update the database table , invoke the stored procedure, query the view and table-valued function.  
-the web API is followed the OData protocol ([http://www.odata.org/](http://www.odata.org/)) 
+## [using Microsoft.AspNetCore.OData]
 
+## Introduction
 
-# Install
+Dynamic generate OData Controller from database.
 
-## Database setup
+It expose the database to client through web API, client can query/insert/delete/update the database table , invoke the stored procedure, query the view and table-valued function.
+
+The web API is followed the OData protocol (http://www.odata.org/)
+
+## Install
+
+### Database setup
+
 In your database execute the database initial script, the initial script locate at folder ['Sql/initialScript/'](https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012)
 
 those scripts will create the stored procedures query the database schema for build web API
-~ Note
-those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you should use the scripts in v2008 folder, it will need you do more configure.
-~
 
-## WebApi setup
-### Create a web API project
+#### Note
 
-### Install odata nuget package 
+>Those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you should use the scripts in v2008 folder, it will need you do more configure.
 
-[https://www.nuget.org/packages/maskx.OData/](https://www.nuget.org/packages/maskx.OData/)
+### WebApi setup
 
-### Configure the controller
+* **Create a web API project**
+
+* **Install nuget package**: https://www.nuget.org/packages/maskx.OData/
+
+* **Configure the controller**
+
 ```CSharp
-	class Startup
+  class Startup
     {
         public void ConfigureServices(IServiceCollection services)
         {
@@ -38,118 +43,181 @@ those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you sh
         public void Configure(IApplicationBuilder app)
         {
             app.UseMvc(routeBuilder => {
-                routeBuilder.MapDynamicODataServiceRoute("odata","db",
+                routeBuilder.MapDynamicODataServiceRoute("odata","db1",
                     new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
             });
         }
     }
 ```
 
-# Usage
-now you can access the database object through the web API. you can visit this page for basic OData knowledge [http://www.odata.org/getting-started/understand-odata-in-6-steps/](http://www.odata.org/getting-started/understand-odata-in-6-steps/)
+## Usage
 
-## Requesting Entity Collections
+now you can access the database object through the web API. you can visit this page for basic OData knowledge: http://www.odata.org/getting-started/understand-odata-in-6-steps/
+
+### Note
+
+>OData is case-sensitive, if you want case-insensitive, see Configuration
+
+### Requesting Entity Collections
 
 ```javascript
-  $.get('db/<table name>').done(function (data) {alert(data.value) });
-  $.get('db/<view name>').done(function (data) {alert(data.value) });
-  $.get('db/<Table-valued function name>()').done(function (data) {alert(data.value) });
+  $.get('db1/<table name>').done(function (data) {alert(data.value) });
+  $.get('db1/<view name>').done(function (data) {alert(data.value) });
+  $.get('db1/<Table-valued function name>()').done(function (data) {alert(data.value) });
 ```
 
-## Requesting an Individual Entity by ID
+### Requesting an Individual Entity by ID
+
 ```javascript
-  $.get('db/<table name>(<the value of ID>)').done(function (data) {alert(data) });
-  $.get('db/<view name>'(<the value of ID>)).done(function (data) {alert(data) });
+  $.get('db1/<table name>(<the value of ID>)').done(function (data) {alert(data) });
+  $.get('db1/<view name>'(<the value of ID>)).done(function (data) {alert(data) });
 ```
 
-## Requesting an Individual Property
+### Requesting an Individual Property
+
 not support yet
 
-## Querying
-you can user 
-[$filter](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$filter_System), 
-[$orderby](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$orderby_System), 
-[$top](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$top_System_1), 
-[$skip](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$skip_System), 
-[$count](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$inlinecount_System) 
-[$expand]()
-[$select]()
-[$search]()
+### Querying
 
-##Data Modification
-### Create an Entity
+you can user:
+
+* [$filter](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$filter_System)
+* [$orderby](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$orderby_System)
+* [$top](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$top_System_1)
+* [$skip](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$skip_System)
+* [$count](http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part1-protocol/odata-v4.0-errata03-os-part1-protocol-complete.html#_The_$inlinecount_System)
+* [$expand]()
+* [$select]()
+* [$search]()
+
+### Data Modification
+
+* **Create an Entity**
 
 ```javascript
-  $.post('db/<table>',{
+  $.post('db1/<table>',{
     'col1':'col1 value',
     'col2':'col2 value',
     ...
   }).done(function (data) {alert(data.value) });
 ```
-### Update an Entity
+
+* **Update an Entity**
+
 ```javascript
   $.ajax({
-    url:'db/<table>(<ID>)',
+    url:'db1/<table>(<ID>)',
     type:'PUT',
     data:{
       'col1':'col1 value',
       'col2':'col2 value',
-      ...  
+      ...
     }
   }).done(function (data) {alert(data)});
 ```
-### Merge an Entity
+
+* **Merge an Entity**
+
 ``` javascript
 $.ajax({
-    url:'db/<table>(<ID>)',
+    url:'db1/<table>(<ID>)',
     type:'PATCH',
     data:{
       'col1':'col1 value',
       'col2':'col2 value',
-      ...  
+      ...
     }
   }).done(function (data) {alert(data)});
 ```
-### Delete an Entity
+
+* **Delete an Entity**
+
 ```javascript
   $.ajax({
-    url:'db/<table>(<ID>)',
+    url:'db1/<table>(<ID>)',
     type:'DELETE'
   }).done(function (data) {alert(data) });
 ```
-##  View
-  for view, only can query support 
+
+### View
+
+  for view, only query is supported
+
 ```javascript
-    $.get('db/<view>').done(function (data) {alert(data.value) });
+$.get('db1/<view>').done(function (data) {alert(data.value) });
 ```
-## Stored procedure
+
+### Stored procedure
+
 ```javascript
- $.post('db/<Stroed procedure name >()',{
+ $.post('db1/<Stroed procedure name >()',{
     'par1':'par1 value',
     'par2':'par2 value',
     ...
   }).done(function (data) {alert(data) });
-  
+
 ```
 
 ## Table-valued function
+
 ```javascript
-   $.get('db/<table-valued function name>()').done(function (data) {alert(data.value) });
+$.get('db1/<table-valued function name>()')
+.done(function (data) {alert(data.value) });
 ```
-***Parameter***
+
+* **Parameter**
+
 ```javascript
-   $.get('db/<table-valued function name>(ParameterName1=arameterValue1，ParameterName2=ParameterValue2)')
+   $.get('db1/<table-valued function name>(ParameterName1=arameterValue1，ParameterName2=ParameterValue2)')
    .done(function (data) {alert(data.value) });
 ```
+
+* **Querying**
+
+ you can query a table-valued function as a table
+
+```javascript
+$.get('db1/<table-valued function name>()')
+.done(function (data) {alert(data.value) });
+```
+
+## Schema
+
+the default schema of sql server is **dbo**, so you can query the table by name directly when the table's shcema is **dbo**
+
+when the schema of a table is not **dbo**, you must query the table with schema name
+
+```javascript
+$.get('db1/<schema name>.<table name>')
+.done(function (data) {alert(data.value) });
+```
+
+* **Customer default schema**
+
+If you want make another schema( not dbo) as your default schema for the query url convenient, you can change it
+
+```csharp
+public void Configure(IApplicationBuilder app)
+{
+  app.UseMvc(routeBuilder =>
+  {
+     var dataSource = new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
+     dataSource.Configuration.DefaultSchema = "schemaB";
+     routeBuilder.MapDynamicODataServiceRoute("odata1", "db1", dataSource);
+  });
+}
+```
+
 ## Security
+
 SQLDataSource has a BeforeExcute property, you can judge user's permission in there
 
 ```csharp
-new maskx.OData.Sql.SQLDataSource(<DataSourceName>)
+new maskx.OData.Sql.SQL2012(<DataSourceName>)
 {
    BeforeExcute = (ri) =>{
       if (ri.QueryOptions != null && ri.QueryOptions.SelectExpand != null) {
-     
+
       }
       Console.WriteLine("BeforeExcute:{0}", ri.Target);
    }
@@ -157,12 +225,12 @@ new maskx.OData.Sql.SQLDataSource(<DataSourceName>)
 ```
 
 ## Audit
+
 SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user's permission in there
 
-## More
-### SQL Server 2008
-### Handling special characters in odata queries
+## SQL Server 2008
 
+## Handling special characters in odata queries
 
 | Special Character| Special Meaning                               | Hexadecimal Value|
 |      :---:       | ---                                           |      :---:       |
@@ -173,6 +241,11 @@ SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user'
 |#                 |Indicates the bookmark                         | %23              |
 |&                 |Spearator between parameters specified the URL | %26              |
 
+## Configuration
 
-# License
+* **DefaultSchema** :Defalut Schema name, default is **dbo**
+* **LowerName**: make the name of database object to lower, default is false
+
+## License
+
 The MIT License (MIT) - See file 'LICENSE' in this project

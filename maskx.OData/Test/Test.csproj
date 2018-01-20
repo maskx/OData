@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.AspNet.WebApi.Client" Version="5.2.4-preview1" />
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.OData" Version="7.0.0-beta1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.5.0" />
     <PackageReference Include="Microsoft.OData.Core" Version="7.3.1" />
     <PackageReference Include="MySql.Data" Version="6.10.5" />
@@ -20,12 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\maskx.OData\maskx.OData.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Microsoft.AspNetCore.OData">
-      <HintPath>..\..\..\..\..\Desktop\WebApi-7.0.0.B1\bin\Debug\netstandard2.0\Microsoft.AspNetCore.OData.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>

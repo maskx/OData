@@ -108,6 +108,7 @@ namespace maskx.OData
                 if (pathHandler != null)
                     containerBuilder.AddService(Microsoft.OData.ServiceLifetime.Singleton, sp => pathHandler);
             });
+            //TODO: there has a bug. diff controller with same routePrefix run in same process
             DataSourceProvider.AddDataSource(routePrefix, dataSource);
            
             return odataRoute;

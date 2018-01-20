@@ -10,9 +10,10 @@ namespace maskx.OData
         {
             DefaultSchema = "dbo";
             SupportMultiSchema = false;
+            LowerName = false;
         }
         /// <summary>
-        /// Defalut Schema, default is dbo
+        /// Defalut Schema name, default is dbo
         /// </summary>
         public string DefaultSchema
         {
@@ -22,5 +23,9 @@ namespace maskx.OData
         /// Support Multiple Schema,default is false
         /// </summary>
         public bool SupportMultiSchema { get; set; }
+        /// <summary>
+        /// make the name of database object to lower, default is false
+        /// </summary>
+        public bool LowerName { get; set; }
     }
 }
