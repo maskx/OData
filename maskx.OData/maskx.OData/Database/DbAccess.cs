@@ -31,7 +31,7 @@ namespace maskx.Database
         #endregion
 
         #region Method
-        public DbParameterCollection ExecuteReader(string commandText, Action<DbDataReader> dataReader, Action<DbParameterCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
+        public DbParameterCollection ExecuteReader(string commandText, Action<DbDataReader> dataReader, Action<TparCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
             using (DbDataReader reader = CreateReader(commandText, commandTimeout, commandType, parametersBuilder, out DbParameterCollection pars))
             {
@@ -43,7 +43,7 @@ namespace maskx.Database
                 return pars;
             }
         }
-        public object ExecuteScalar(string commandText, Action<DbParameterCollection> parametersBuilder,
+        public object ExecuteScalar(string commandText, Action<TparCollection> parametersBuilder,
            CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
             object rtv = 0;
@@ -66,7 +66,7 @@ namespace maskx.Database
 
             return rtv;
         }
-        public int ExecuteNonQuery(string commandText, Action<DbParameterCollection> parametersBuilder,
+        public int ExecuteNonQuery(string commandText, Action<TparCollection> parametersBuilder,
             CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
             int nAffectedRows = 0;
@@ -92,7 +92,7 @@ namespace maskx.Database
         DbDataReader CreateReader(string commandText
             , int commandTimeout
             , CommandType commandType
-            , Action<DbParameterCollection> parametersBuilder
+            , Action<TparCollection> parametersBuilder
             , out DbParameterCollection pars
             )
         {
@@ -143,7 +143,7 @@ namespace maskx.Database
                     _Connection.Open();
                 }
         }
-        DbCommand CreateCommand(string commandText, int commandTimeout, CommandType commandType, Action<DbParameterCollection> parametersBuilder)
+        DbCommand CreateCommand(string commandText, int commandTimeout, CommandType commandType, Action<TparCollection> parametersBuilder)
         {
             if (_Connection == null)
                 throw new ObjectDisposedException("DbAccess");
@@ -155,7 +155,7 @@ namespace maskx.Database
             if (commandTimeout > 0)
                 dbCommand.CommandTimeout = commandTimeout;
 
-            parametersBuilder?.Invoke(dbCommand.Parameters);
+            parametersBuilder?.Invoke(dbCommand.Parameters as TparCollection);
 
             return dbCommand;
         }

@@ -22,9 +22,9 @@ namespace Test
         [Fact]
         public void GetWithSchemaSuccess()
         {
-            var rtv = Common.GetJObject("dbo.Tag");
+            var rtv = Common.GetJObject("schemaB.Group");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#dbo.Tag", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#schemaB.Group", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
         [Fact]

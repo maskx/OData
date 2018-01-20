@@ -30,7 +30,7 @@ namespace Test
                 })
                 .Build();
             _WebHost.Start();
-            Get("db1","AspNetUsers");
+            Get("db1", "AspNetUsers");
             Get("db2", "Menu");
         }
         [Fact]
@@ -45,12 +45,12 @@ namespace Test
                             })
                             .Build();
             _WebHost.Start();
-            Get("db1/SchemaA", "dbo.Tag");
-            Get("db1/SchemaB", "dbo.Tag");
+            Get("db1/schemaA", "schemaA.Group");
+            Get("db1/schemaB", "schemaB.Group");
         }
-        public void Get(string dataSource,string target)
+        public void Get(string dataSource, string target)
         {
-           string tpl = string.Format("http://{0}:{1}/{2}/{3}", IPAddress.Loopback, _Port, dataSource,target);
+            string tpl = string.Format("http://{0}:{1}/{2}/{3}", IPAddress.Loopback, _Port, dataSource, target);
             HttpClient client = new HttpClient();
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, tpl);
             HttpResponseMessage response = client.SendAsync(request).Result;
@@ -58,10 +58,10 @@ namespace Test
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var rtv = JObject.Parse(str);
             Assert.Equal(2, rtv.Count);
-            Assert.EndsWith("$metadata#"+ target, rtv.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#" + target, rtv.Property("@odata.context").Value.ToString());
         }
     }
-   
+
     public class TwoDatasourceStartup
     {
         public void ConfigureServices(IServiceCollection services)
@@ -71,11 +71,13 @@ namespace Test
         }
         public void Configure(IApplicationBuilder app)
         {
-            app.UseMvc(routeBuilder => {
+            app.UseMvc(routeBuilder =>
+            {
                 routeBuilder.MapDynamicODataServiceRoute("odata1", "db1",
                     new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
             });
-            app.UseMvc(routeBuilder => {
+            app.UseMvc(routeBuilder =>
+            {
                 routeBuilder.MapDynamicODataServiceRoute("odata2", "db2",
                     new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=test;Integrated Security=True"));
             });
@@ -92,11 +94,13 @@ namespace Test
         }
         public void Configure(IApplicationBuilder app)
         {
-            app.UseMvc(routeBuilder => {
+            app.UseMvc(routeBuilder =>
+            {
                 routeBuilder.MapDynamicODataServiceRoute("odata1", "db1/SchemaA",
                     new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
             });
-            app.UseMvc(routeBuilder => {
+            app.UseMvc(routeBuilder =>
+            {
                 routeBuilder.MapDynamicODataServiceRoute("odata2", "db1/SchemaB",
                     new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
             });

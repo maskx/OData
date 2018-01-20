@@ -17,7 +17,7 @@ namespace Test
             var rtv = Common.Post("GetEdmModelInfo()", null);
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.Equal(2, rtv.Item2.Count);
-            Assert.EndsWith("$metadata#ns.GetEdmModelInfo_RtvType", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#dbo.GetEdmModelInfo_RtvType", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
         public void WithParameterSuccess()
@@ -25,7 +25,7 @@ namespace Test
             var rtv = Common.Post("GetEdmSPResultSet()", new { Name = "GetEdmModelInfo" });
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.Equal(2, rtv.Item2.Count);
-            Assert.EndsWith("$metadata#ns.GetEdmSPResultSet_RtvType", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#dbo.GetEdmSPResultSet_RtvType", rtv.Item2.Property("@odata.context").Value.ToString());
         }
     }
 }
