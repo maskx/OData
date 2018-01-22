@@ -20,6 +20,7 @@ namespace maskx.OData.Sql
             var container = new EdmEntityContainer("ns", "container");
             model.AddElement(container);
             AddEdmElement(model);
+            //https://stackoverflow.com/questions/9546378/how-to-list-mysql-stored-procedure-parameters
             return model;
         }
         void AddEdmElement(EdmModel model)

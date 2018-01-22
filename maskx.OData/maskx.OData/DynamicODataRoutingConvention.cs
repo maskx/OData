@@ -17,15 +17,7 @@ namespace maskx.OData
         public IEnumerable<ControllerActionDescriptor> SelectAction(RouteContext routeContext)
         {
             var odataFeature = routeContext.HttpContext.ODataFeature();
-            var router = routeContext.RouteData.Routers.First(r =>
-              {
-                  if (r is ODataRoute)
-                      return (r as ODataRoute).Name == odataFeature.RouteName;
-                  return false;
-              }) as ODataRoute;
-            var ds = DataSourceProvider.GetDataSource(router.RoutePrefix);
-            routeContext.HttpContext.Items.Add("DataSource", ds);
-
+            
             IActionDescriptorCollectionProvider actionCollectionProvider =
                     routeContext.HttpContext.RequestServices.GetRequiredService<IActionDescriptorCollectionProvider>();
             Contract.Assert(actionCollectionProvider != null);

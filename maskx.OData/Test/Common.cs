@@ -11,6 +11,11 @@ namespace Test
     {
         public static string _RouterPrefix = "ss";
         public static int _Port = 5008;
+        public static int _Port_ChangeDefaultSchema = 9001;
+        public static int _Port_SchemaInUri = 9002;
+        public static int _Port_TwoDatasource = 9003;
+        public static int _Port_LowerName = 9004;
+
         static Common()
         {
             Tpl = string.Format("http://{0}:{1}/{2}/{{0}}", IPAddress.Loopback, _Port, _RouterPrefix);
@@ -69,6 +74,16 @@ namespace Test
             {
                 Content = new JsonContent(content)
             };
+            HttpResponseMessage response = client.SendAsync(request).Result;
+            var str = response.Content.ReadAsStringAsync().Result;
+            return new ValueTuple<HttpStatusCode, string>(response.StatusCode, str);
+        }
+
+        public static ValueTuple<HttpStatusCode, string> Get(string target, string dataSource, int port)
+        {
+            string tpl = string.Format("http://{0}:{1}/{2}/{3}", IPAddress.Loopback, port, dataSource, target);
+            HttpClient client = new HttpClient();
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, tpl);
             HttpResponseMessage response = client.SendAsync(request).Result;
             var str = response.Content.ReadAsStringAsync().Result;
             return new ValueTuple<HttpStatusCode, string>(response.StatusCode, str);

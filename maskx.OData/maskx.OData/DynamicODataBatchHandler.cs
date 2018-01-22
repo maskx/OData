@@ -18,7 +18,7 @@ namespace maskx.OData
             Uri serviceRootUri = null;
             Uri fullUri = null;
             string dataSourceName = odataPath.Split('/')[0];
-            IEdmModel model = DataSourceProvider.GetEdmModel(dataSourceName);
+            IEdmModel model = requestContainer.GetService(typeof(IEdmModel)) as IEdmModel;
             Contract.Assert(serviceRoot != null);
 
             serviceRootUri = new Uri(

@@ -24,7 +24,7 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult Get()
         {
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var options = GetQueryOptions();
             var ri = new RequestInfo(ds.Name)
             {
@@ -45,7 +45,7 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetByKey()
         {
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var options = GetQueryOptions();
             var ri = new RequestInfo(ds.Name)
             {
@@ -58,7 +58,7 @@ namespace maskx.OData
                 if (options.SelectExpand != null)
                     Request.ODataFeature().SelectExpandClause = options.SelectExpand.SelectExpandClause;
                 string key = GetKey();
-                
+
                 return ds.Get(key, options);
             });
         }
@@ -68,8 +68,7 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetSimpleFunction()
         {
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
-
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var path = Request.ODataFeature().Path;
 
             OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
@@ -114,7 +113,7 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult DoAction()
         {
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var path = Request.ODataFeature().Path;
             OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
             IEdmType elementType = seg.EdmType;
@@ -154,7 +153,7 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetCount()
         {
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var options = GetQueryOptions();
             var ri = new RequestInfo(ds.Name)
             {
@@ -173,7 +172,7 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetFuncResultCount()
         {
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var options = GetQueryOptions();
             var path = Request.ODataFeature().Path;
             OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
@@ -210,7 +209,7 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty");
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Create,
@@ -227,7 +226,7 @@ namespace maskx.OData
         }
         public ActionResult Delete()
         {
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var options = GetQueryOptions();
 
             var ri = new RequestInfo(ds.Name)
@@ -239,7 +238,8 @@ namespace maskx.OData
             {
                 string key = GetKey();
                 return ds.Delete(key, options.Context.Path.EdmType);
-            },(rtv)=> {
+            }, (rtv) =>
+            {
                 if ((int)rtv == 1)
                     return StatusCode((int)HttpStatusCode.NoContent);
                 return StatusCode((int)HttpStatusCode.RequestedRangeNotSatisfiable, rtv);
@@ -251,8 +251,7 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty.");
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
-
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Merge,
@@ -263,7 +262,8 @@ namespace maskx.OData
             {
                 string key = GetKey();
                 return ds.Merge(key, entity);
-            }, (rtv) => {
+            }, (rtv) =>
+            {
                 if ((int)rtv == 1)
                     return StatusCode((int)HttpStatusCode.NoContent);
                 return StatusCode((int)HttpStatusCode.RequestedRangeNotSatisfiable, rtv);
@@ -274,8 +274,7 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty.");
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
-
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Replace,
@@ -286,10 +285,11 @@ namespace maskx.OData
             {
                 string key = GetKey();
                 return ds.Replace(key, entity);
-            }, (rtv) => {
+            }, (rtv) =>
+            {
                 if ((int)rtv == 1)
                     return StatusCode((int)HttpStatusCode.NoContent);
-                return StatusCode((int)HttpStatusCode.RequestedRangeNotSatisfiable,rtv);
+                return StatusCode((int)HttpStatusCode.RequestedRangeNotSatisfiable, rtv);
             });
         }
         string GetKey()
@@ -309,7 +309,8 @@ namespace maskx.OData
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
                 ? (edmType as IEdmCollectionType).ElementType.Definition
                 : edmType;
-            IDataSource ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+
             IEdmModel model = ds.Model;
             ODataQueryContext queryContext = new ODataQueryContext(model, elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
@@ -319,7 +320,7 @@ namespace maskx.OData
         {
             if (Request.ContentLength == 0)
                 return null;
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var path = Request.ODataFeature().Path;
             IEdmTypeReference edmTypeReference = null;
             if (path.EdmType is EdmCollectionType edmType)
@@ -351,7 +352,7 @@ namespace maskx.OData
         ActionResult Excute(RequestInfo ri, Func<object> func, Func<object, ActionResult> result = null)
         {
             object rtv = null;
-            var ds = HttpContext.Items["DataSource"] as IDataSource;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var options = GetQueryOptions();
             if (ds.BeforeExcute != null)
             {

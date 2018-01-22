@@ -108,6 +108,7 @@ namespace maskx.OData.Sql
                         schemaName = schemaName.ToLower();
                     }
                     entityName = schemaName == Configuration.DefaultSchema ? tableName : string.Format("{0}.{1}", schemaName, tableName);
+                    
                     if (t == null || t.Name != tableName || t.Namespace != schemaName)
                     {
                         var d = model.FindDeclaredType(string.Format("{0}.{1}", schemaName, tableName));

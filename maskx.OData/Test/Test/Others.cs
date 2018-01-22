@@ -19,90 +19,51 @@ namespace Test
         [Fact]
         public void TwoDatasource()
         {
-            int port = 8090;
             var _WebHost = WebHost.CreateDefaultBuilder()
                  .UseStartup<TwoDatasourceStartup>()
                  .UseKestrel(options =>
                  {
                      options.Limits.RequestHeadersTimeout = new TimeSpan(9999999999);
-                     options.Listen(IPAddress.Loopback, port);
+                     options.Listen(IPAddress.Loopback, Common._Port_TwoDatasource);
                  })
                  .Build();
             try
             {
                 _WebHost.Start();
-                Get(port, "db1", "AspNetUsers");
-                Get(port, "db2", "Menu");
+                Common.Get("AspNetUsers", "db1", Common._Port_TwoDatasource);
+                Common.Get("Menu", "db2", Common._Port_TwoDatasource);
             }
             finally
             {
                 if (_WebHost != null)
                     _WebHost.StopAsync();
             }
-
         }
         [Fact]
-        public void Schema()
+        public void SchemaInUri()
         {
-            int port = 8091;
             var _WebHost = WebHost.CreateDefaultBuilder()
-                             .UseStartup<SchemaStartup>()
+                             .UseStartup<SchemaInUriStartup>()
                              .UseKestrel(options =>
                              {
                                  options.Limits.RequestHeadersTimeout = new TimeSpan(9999999999);
-                                 options.Listen(IPAddress.Loopback, port);
+                                 options.Listen(IPAddress.Loopback, Common._Port_SchemaInUri);
                              })
                              .Build();
             try
             {
                 _WebHost.Start();
-                Get(port, "db1/schemaA", "schemaA.Group");
-                Get(port, "db1/schemaB", "schemaB.Group");
+             //   var rtv1 = Common.Get("$metadata", "db1/schemaA", Common._Port_SchemaInUri);
+                var rtv = Common.Get("Group", "db1/schemaA", Common._Port_SchemaInUri);
+                Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+                rtv = Common.Get("Group", "db1/schemaB", Common._Port_SchemaInUri);
+                Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             }
             finally
             {
                 if (_WebHost != null)
                     _WebHost.StopAsync();
             }
-
-        }
-
-        [Fact]
-        public void ChangeDefaultSchema()
-        {
-            int port = 8092;
-            var _WebHost = WebHost.CreateDefaultBuilder()
-                             .UseStartup<ChangeDefaultSchemaStartup>()
-                             .UseKestrel(options =>
-                             {
-                                 options.Limits.RequestHeadersTimeout = new TimeSpan(9999999999);
-                                 options.Listen(IPAddress.Loopback, port);
-                             })
-                             .Build();
-            try
-            {
-                _WebHost.Start();
-               // Get(port, "db1", "$metadata");
-                Get(port, "db1", "dbo.Tag");
-                Get(port, "db1", "Group");
-            }
-            finally
-            {
-                if (_WebHost != null)
-                    _WebHost.StopAsync();
-            }
-        }
-        public void Get(int port, string dataSource, string target)
-        {
-            string tpl = string.Format("http://{0}:{1}/{2}/{3}", IPAddress.Loopback, port, dataSource, target);
-            HttpClient client = new HttpClient();
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, tpl);
-            HttpResponseMessage response = client.SendAsync(request).Result;
-            var str = response.Content.ReadAsStringAsync().Result;
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var rtv = JObject.Parse(str);
-            Assert.Equal(2, rtv.Count);
-            Assert.EndsWith("$metadata#" + target, rtv.Property("@odata.context").Value.ToString());
         }
     }
 
@@ -128,7 +89,7 @@ namespace Test
         }
     }
 
-    public class SchemaStartup
+    public class SchemaInUriStartup
     {
         public void ConfigureServices(IServiceCollection services)
         {
@@ -139,33 +100,18 @@ namespace Test
         {
             app.UseMvc(routeBuilder =>
             {
-                routeBuilder.MapDynamicODataServiceRoute("odata1", "db1/SchemaA",
-                    new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
+                var sourceA = new maskx.OData.Sql.SQL2012("odata", "Data Source =.; Initial Catalog = Group; Integrated Security = True");
+                sourceA.Configuration.DefaultSchema = "schemaA";
+                routeBuilder.MapDynamicODataServiceRoute("odata1", "db1/SchemaA", sourceA);
             });
             app.UseMvc(routeBuilder =>
             {
-                routeBuilder.MapDynamicODataServiceRoute("odata2", "db1/SchemaB",
-                    new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
+                var sourceB = new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
+                sourceB.Configuration.DefaultSchema = "schemaB";
+                routeBuilder.MapDynamicODataServiceRoute("odata2", "db1/SchemaB", sourceB);
             });
         }
     }
 
-    public class ChangeDefaultSchemaStartup
-    {
-        public void ConfigureServices(IServiceCollection services)
-        {
-            services.AddOData();
-            services.AddMvc();
-        }
-        public void Configure(IApplicationBuilder app)
-        {
-            app.UseMvc(routeBuilder =>
-            {
-                var dataSource = new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
-                dataSource.Configuration.DefaultSchema = "schemaB";
-                dataSource.Configuration.LowerName = true;
-                routeBuilder.MapDynamicODataServiceRoute("odata1", "db1", dataSource);
-            });
-        }
-    }
+
 }
