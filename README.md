@@ -8,7 +8,7 @@
 
 Dynamic generate OData Controller from database.
 
-It expose the database to client through web API, client can query/insert/delete/update the database table , invoke the stored procedure, query the view and table-valued function.
+It exposes the database to the client through the web API. Client can query/insert/delete/update the database table, invoke the stored procedure, query the view and table-valued function.
 
 The web API is followed the OData protocol (http://www.odata.org/)
 

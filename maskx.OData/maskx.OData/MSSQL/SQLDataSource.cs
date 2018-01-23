@@ -108,7 +108,7 @@ namespace maskx.OData.Sql
                         schemaName = schemaName.ToLower();
                     }
                     entityName = schemaName == Configuration.DefaultSchema ? tableName : string.Format("{0}.{1}", schemaName, tableName);
-                    
+
                     if (t == null || t.Name != tableName || t.Namespace != schemaName)
                     {
                         var d = model.FindDeclaredType(string.Format("{0}.{1}", schemaName, tableName));
@@ -127,9 +127,11 @@ namespace maskx.OData.Sql
                     {
                         string col = reader["COLUMN_NAME"].ToString();
                         if (Configuration.LowerName)
+                        {
                             col = col.ToLower();
+                        }
                         EdmStructuralProperty key = t.AddStructuralProperty(col, et.Value, true);
-                        if (col == reader["KEY_COLUMN_NAME"].ToString())
+                        if (!reader.IsDBNull("KEY_COLUMN_NAME"))
                         {
                             t.AddKeys(key);
                         }

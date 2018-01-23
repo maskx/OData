@@ -99,14 +99,8 @@ namespace maskx.OData
             var odataRoute = builder.MapODataServiceRoute(routeName, routePrefix, containerBuilder =>
             {
                 containerBuilder
-                    .AddService<IEdmModel>(Microsoft.OData.ServiceLifetime.Singleton, sp =>
-                                       {
-                                           return dataSource.Model;
-                                       })
-                    .AddService<IDataSource>(Microsoft.OData.ServiceLifetime.Scoped, sp =>
-                    {
-                        return dataSource;
-                    })
+                    .AddService<IEdmModel>(Microsoft.OData.ServiceLifetime.Singleton, sp => dataSource.Model)
+                    .AddService<IDataSource>(Microsoft.OData.ServiceLifetime.Scoped, sp => dataSource)
                     .AddService(Microsoft.OData.ServiceLifetime.Scoped, sp => routingConventions.ToList().AsEnumerable());
                 if (pathHandler != null)
                     containerBuilder.AddService(Microsoft.OData.ServiceLifetime.Singleton, sp => pathHandler);

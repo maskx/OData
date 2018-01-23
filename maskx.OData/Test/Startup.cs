@@ -21,9 +21,9 @@ namespace Test
         }
         public void Configure(IApplicationBuilder app)
         {
+            var ds = new maskx.OData.Sql.SQL2012("ds","Data Source=.;Initial Catalog=Group;Integrated Security=True");
             app.UseMvc(routeBuilder => {
-                routeBuilder.MapDynamicODataServiceRoute("odata",Common._RouterPrefix,
-                    new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
+                routeBuilder.MapDynamicODataServiceRoute("odata",Common._RouterPrefix,ds);
             });
         }
     }
