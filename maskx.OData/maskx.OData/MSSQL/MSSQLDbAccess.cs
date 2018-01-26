@@ -6,9 +6,10 @@ using System.Data.SqlClient;
 
 namespace maskx.OData.Sql
 {
-    internal class MSSQLDbAccess : DbAccess<SqlParameter, SqlParameterCollection>
+    internal class MSSQLDbAccess : DbAccess
     {
-        public MSSQLDbAccess(string connectionString) : base(new SqlConnection(connectionString))
+        public MSSQLDbAccess(string connectionString)
+            : base(System.Data.SqlClient.SqlClientFactory.Instance, connectionString)
         {
 
         }

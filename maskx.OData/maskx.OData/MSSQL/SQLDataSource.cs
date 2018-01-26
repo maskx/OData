@@ -481,8 +481,8 @@ namespace maskx.OData.Sql
 
                 }, (pars) =>
                 {
-                    pars.AddWithValue("NAME", name);
-                    pars.AddWithValue("SCHEMA_NAME", nameSpace);
+                    (pars as SqlParameterCollection).AddWithValue("NAME", name);
+                    (pars as SqlParameterCollection).AddWithValue("SCHEMA_NAME", nameSpace);
                 });
             }
             return new EdmComplexTypeReference(root, true);
@@ -1001,7 +1001,7 @@ namespace maskx.OData.Sql
                         collection.Add(entity);
                     }, (pars) =>
                     {
-                        SetParameter(action, parameterValues, pars);
+                        SetParameter(action, parameterValues, pars as SqlParameterCollection);
                     });
                 foreach (var outp in edmType.Properties())
                 {

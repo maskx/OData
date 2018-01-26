@@ -36,7 +36,7 @@ namespace Test
             Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
-        public void tolower()
+        public void Tolower()
         {
             var rtv = Common.GetJObject("AspNetUsers?$filter=tolower('Admin') eq UserName");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
@@ -44,7 +44,7 @@ namespace Test
             Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
-        public void indexof()
+        public void Indexof()
         {
             var rtv = Common.GetJObject("AspNetUsers?$filter=indexof(UserName,'A') eq 1");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);

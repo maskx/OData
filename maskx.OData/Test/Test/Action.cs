@@ -14,7 +14,7 @@ namespace Test
         [Fact]
         public void NoParameterSuccess()
         {
-            var rtv = Common.Post("GetEdmModelInfo()", null);
+            var rtv = Common.Post("TimeCollection.GetEdmModelInfo()", null);
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.Equal(2, rtv.Item2.Count);
             Assert.EndsWith("$metadata#dbo.GetEdmModelInfo_RtvType", rtv.Item2.Property("@odata.context").Value.ToString());

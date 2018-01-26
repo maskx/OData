@@ -1,139 +1,193 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using maskx.Database;
 using maskx.OData.Sql;
 using Microsoft.AspNet.OData;
 using Microsoft.AspNet.OData.Query;
 using Microsoft.OData.Edm;
+using MySql.Data.MySqlClient;
 using Newtonsoft.Json.Linq;
 
 namespace maskx.OData.Sql
 {
-    public class MySQL : IDataSource
+    public class MySQL : DbSourceBase
     {
-        public Configuration Configuration { get; set; }
-        readonly string ConnectionString;
-        public string ModelCommand { get; private set; }
-        private EdmModel BuildEdmModel()
+        public MySQL(string name, string connectionString) : base(name, connectionString) { }
+        protected override EdmPrimitiveTypeKind? GetEdmType(string dbType)
         {
-            var model = new EdmModel();
-            var container = new EdmEntityContainer("ns", "container");
-            model.AddElement(container);
-            AddEdmElement(model);
-            //https://stackoverflow.com/questions/9546378/how-to-list-mysql-stored-procedure-parameters
-            return model;
-        }
-        void AddEdmElement(EdmModel model)
-        {
-            EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
-            string tableName = string.Empty;
-            EdmEntityType t = null;
-            IEdmEntitySet edmSet = null;
-            using (var db = new MySQLDbAccess(this.ConnectionString))
+            switch (dbType.ToLower())
             {
-                db.ExecuteReader(ModelCommand, (reader) =>
-                {
-                    tableName = reader["TABLE_NAME"].ToString();
-                    if (t == null || t.Name != tableName)
-                    {
-                        edmSet = container.FindEntitySet(tableName);
-                        if (edmSet == null)
-                        {
-                            t = new EdmEntityType("ns", tableName);
-                            model.AddElement(t);
-                            container.AddEntitySet(tableName, t);
-                        }
-                        else
-                            t = edmSet.EntityType() as EdmEntityType;
-
-                    }
-                    var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
-                    if (et.HasValue)
-                    {
-                        string col = reader["COLUMN_NAME"].ToString();
-                        EdmStructuralProperty key = t.AddStructuralProperty(col, et.Value, true);
-                        if (col == reader["KEY_COLUMN_NAME"].ToString())
-                        {
-                            t.AddKeys(key);
-                        }
-                    }
-                });
+                case "uniqueidentifier":
+                    return EdmPrimitiveTypeKind.Guid;
+                case "xml":
+                case "varchar":
+                case "nvarchar":
+                case "text":
+                case "ntext":
+                    return EdmPrimitiveTypeKind.String;
+                case "char":
+                case "nchar":
+                    return EdmPrimitiveTypeKind.String;
+                case "money":
+                case "smallmoney":
+                case "numeric":
+                case "decimal":
+                    return EdmPrimitiveTypeKind.Decimal;
+                case "smallint":
+                    return EdmPrimitiveTypeKind.Int16;
+                case "int":
+                    return EdmPrimitiveTypeKind.Int32;
+                case "bigint":
+                    return EdmPrimitiveTypeKind.Int64;
+                case "tinyint":
+                    return EdmPrimitiveTypeKind.Byte;
+                case "float":
+                    return EdmPrimitiveTypeKind.Double;
+                case "real":
+                    return EdmPrimitiveTypeKind.Single;
+                case "bit":
+                    return EdmPrimitiveTypeKind.Boolean;
+                case "date":
+                case "timestamp":
+                case "time":
+                case "smalldatetime":
+                case "datetime":
+                    return EdmPrimitiveTypeKind.DateTimeOffset;
+                case "image":
+                case "varbinary":
+                case "binary":
+                    return EdmPrimitiveTypeKind.Byte;
+                default:
+                    return null;
             }
         }
-        #region IDataSource
-        public string Name { get; private set; }
-        EdmModel _Model;
-        readonly object _ModelLocker = new object();
-        public EdmModel Model
+
+        protected override IEnumerable<(string ForeignKeyName,
+            string ParentSchemaName,
+            string ParentName,
+            string ParentColumnName,
+            string RefrencedName,
+            string RefrencedSchemaName,
+            string RefrencedColumnName)>
+            GetRelationship()
         {
-            get
+            yield break;
+        }
+
+        protected override IEnumerable<(string SchemaName,
+            string StoredProcedureName,
+            string ParameterName,
+            string ParameterDataType,
+            string ParemeterMode,
+            string UserDefinedTypeSchema,
+            string UserDefinedTypeName,
+            int MaxLength,
+            int NumericScale)> GetStoredProcedures()
+        {
+            using (MySqlConnection conn = new MySqlConnection(this.ConnectionString))
             {
-                if (_Model == null)
+                String cmdtxt = @"select r.ROUTINE_SCHEMA,
+    r.ROUTINE_NAME,
+    p.PARAMETER_NAME,
+    p.DATA_TYPE,
+    p.PARAMETER_MODE,
+    p.CHARACTER_MAXIMUM_LENGTH,
+    p.NUMERIC_SCALE   
+from information_schema.ROUTINES AS r
+  left join  information_schema.parameters AS p 
+    on p.SPECIFIC_NAME=r.ROUTINE_NAME 
+    and
+        p.SPECIFIC_SCHEMA =r.ROUTINE_SCHEMA";
+                MySqlCommand cmd = new MySqlCommand(cmdtxt, conn);
+                conn.Open();
+                var reader = cmd.ExecuteReader();
+                while (reader.Read())
                 {
-                    lock (_ModelLocker)
-                    {
-                        if (_Model == null)
-                        {
-                            _Model = BuildEdmModel();
-                        }
-                    }
+                    yield return (reader.GetString("ROUTINE_SCHEMA"),
+                                       reader.GetString("ROUTINE_NAME"),
+                                       reader.IsDBNull("PARAMETER_NAME") ? string.Empty : reader.GetString("PARAMETER_NAME"),
+                                       reader.IsDBNull("DATA_TYPE") ? string.Empty : reader.GetString("DATA_TYPE"),
+                                       reader.IsDBNull("PARAMETER_MODE") ? string.Empty : reader.GetString("PARAMETER_MODE"),
+                                       string.Empty,
+                                       string.Empty,
+                                       reader.IsDBNull("CHARACTER_MAXIMUM_LENGTH") ? 0 : reader.GetInt32("CHARACTER_MAXIMUM_LENGTH"),
+                                       reader.IsDBNull("NUMERIC_SCALE") ? 0 : reader.GetInt32("NUMERIC_SCALE"));
                 }
-                return _Model;
+                conn.Close();
             }
         }
 
-        public Action<RequestInfo> BeforeExcute { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public Func<RequestInfo, object, object> AfrerExcute { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
-        public string Create(IEdmEntityObject entity)
+        protected override IEnumerable<(string SchemaName,
+            string TableName,
+            string ColumnName,
+            string DataType,
+            bool isKey)> GetTables()
         {
-            throw new NotImplementedException();
+            using (MySqlConnection conn = new MySqlConnection(this.ConnectionString))
+            {
+                String cmdtxt = @"select  
+    TABLE_SCHEMA  AS 'SCHEMA_NAME'
+    ,TABLE_NAME
+    ,COLUMN_NAME
+    ,DATA_TYPE
+    ,IS_NULLABLE
+    ,CHARACTER_MAXIMUM_LENGTH 
+    ,NUMERIC_PRECISION
+    ,NUMERIC_SCALE
+    ,COLUMN_KEY
+    from INFORMATION_SCHEMA.COLUMNS
+    where TABLE_SCHEMA='TimeCollection';";
+                MySqlCommand cmd = new MySqlCommand(cmdtxt, conn);
+                conn.Open();
+                var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    yield return (reader.GetString("SCHEMA_NAME"),
+                                       reader.GetString("TABLE_NAME"),
+                                        reader.GetString("COLUMN_NAME"),
+                                        reader.GetString("DATA_TYPE"),
+                                       reader.IsDBNull("COLUMN_KEY") ? false : reader.GetString("COLUMN_KEY") == "PRI" ? true : false
+                                       );
+                }
+                conn.Close();
+            }
         }
 
-        public int Delete(string key, IEdmType elementType)
+        protected override IEnumerable<(string SchemaName,
+            string FunctionName, 
+            string ParameterName, 
+            string ParameterDataType,
+            string UserDefinedTypeSchema,
+            string UserDefinedTypeName, 
+            int MaxLength,
+            int NumericScale)> GetFunctions()
         {
-            throw new NotImplementedException();
+            yield break;
         }
 
-        public IEdmObject DoAction(IEdmAction action, JObject parameterValues)
+        protected override IEnumerable<(string ColumnName,
+            string DataType, 
+            int Length, 
+            bool isNullable)> GetTableValueType(string schema, string name)
         {
-            throw new NotImplementedException();
+            yield break;
         }
 
-        public EdmEntityObjectCollection Get(ODataQueryOptions queryOptions)
+        protected override IEnumerable<(string ColumnName, string DataType, int Length, bool isNullable)> GetUserDefinedType(string schema, string name)
         {
-            throw new NotImplementedException();
+            yield break;
         }
 
-        public EdmEntityObject Get(string key, ODataQueryOptions queryOptions)
+        protected override IEnumerable<(string SchemaName, string ViewName, string ColumnName, string DataType, bool isKey)> GetViews()
         {
-            throw new NotImplementedException();
+            yield break;
         }
 
-        public int GetCount(ODataQueryOptions queryOptions)
+        protected override DbAccess CreateDbAccess(string connectionString)
         {
-            throw new NotImplementedException();
+            return new DbAccess(MySql.Data.MySqlClient.MySqlClientFactory.Instance,connectionString);
         }
-
-        public int GetFuncResultCount(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions)
-        {
-            throw new NotImplementedException();
-        }
-
-        public IEdmObject InvokeFunction(IEdmFunction action, JObject parameterValues, ODataQueryOptions queryOptions = null)
-        {
-            throw new NotImplementedException();
-        }
-
-        public int Merge(string key, IEdmEntityObject entity)
-        {
-            throw new NotImplementedException();
-        }
-
-        public int Replace(string key, IEdmEntityObject entity)
-        {
-            throw new NotImplementedException();
-        }
-        #endregion
     }
 }

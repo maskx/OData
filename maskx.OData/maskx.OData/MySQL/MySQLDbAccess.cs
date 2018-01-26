@@ -6,9 +6,10 @@ using MySql.Data.MySqlClient;
 
 namespace maskx.OData.Sql
 {
-    internal class MySQLDbAccess : DbAccess<MySqlParameter, MySqlParameterCollection>
+    internal class MySQLDbAccess : DbAccess
     {
-        public MySQLDbAccess(string connectionString) : base(new MySqlConnection(connectionString))
+        public MySQLDbAccess(string connectionString)
+            : base(MySql.Data.MySqlClient.MySqlClientFactory.Instance, connectionString)
         {
 
         }

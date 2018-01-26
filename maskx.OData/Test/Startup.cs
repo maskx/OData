@@ -22,8 +22,11 @@ namespace Test
         public void Configure(IApplicationBuilder app)
         {
             var ds = new maskx.OData.Sql.SQL2012("ds","Data Source=.;Initial Catalog=Group;Integrated Security=True");
+            var mySql = new maskx.OData.Sql.MySQL("mysql", "Server=localhost;Database=TimeCollection;Uid=root;Pwd = password;");
             app.UseMvc(routeBuilder => {
-                routeBuilder.MapDynamicODataServiceRoute("odata",Common._RouterPrefix,ds);
+                routeBuilder.MapDynamicODataServiceRoute("odata",
+                    Common._RouterPrefix, 
+                    ds);
             });
         }
     }
