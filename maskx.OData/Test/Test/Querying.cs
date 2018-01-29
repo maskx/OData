@@ -13,10 +13,11 @@ namespace Test
         [Fact]
         public void Endswith()
         {
-            var rtv = Common.GetJObject("AspNetUsers?$filter=(endswith(UserName,'min')) or (UserName eq null)&$top=1&$skip=1&$orderby=UserName desc");
+            //endswith(Name,'Name2') or 
+            var rtv = Common.GetJObject("Tag?$filter=0 eq ParentId&$top=1&$skip=1&$orderby=Name desc");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.Equal(2, rtv.Item2.Count);
-            Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#Tag", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
         public void Concat()

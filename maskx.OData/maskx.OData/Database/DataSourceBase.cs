@@ -8,9 +8,10 @@ using maskx.Database;
 using Microsoft.AspNet.OData;
 using Microsoft.AspNet.OData.Query;
 using Microsoft.OData.Edm;
+using Microsoft.OData.UriParser;
 using Newtonsoft.Json.Linq;
 
-namespace maskx.OData
+namespace maskx.OData.Database
 {
     public abstract class DbSourceBase : IDataSource
     {
@@ -370,12 +371,32 @@ namespace maskx.OData
 
         public string Create(IEdmEntityObject entity)
         {
-            throw new NotImplementedException();
+            List<DbParameter> pars = new List<DbParameter>();
+            string cmdTxt = BuildCreateCmd(entity, pars);
+            object rtv = 0;
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                rtv = db.ExecuteScalar(cmdTxt, (dbpars) =>
+                    {
+                        dbpars.AddRange(pars.ToArray());
+                    }, CommandType.Text);
+            }
+            return rtv.ToString();
         }
-
+       
         public int Delete(string key, IEdmType elementType)
         {
-            throw new NotImplementedException();
+            List<DbParameter> pars = new List<DbParameter>();
+            string cmdTxt = BuildDeleteCmd(key, elementType, pars);
+            int rtv = 0;
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                rtv = db.ExecuteNonQuery(cmdTxt, (parBuilder) =>
+                      {
+                          parBuilder.AddRange(pars.ToArray());
+                      }, CommandType.Text);
+            }
+            return rtv;
         }
 
         public IEdmObject DoAction(IEdmAction action, JObject parameterValues)
@@ -389,68 +410,214 @@ namespace maskx.OData
 
         public EdmEntityObjectCollection Get(ODataQueryOptions queryOptions)
         {
-            throw new NotImplementedException();
+            var cxt = queryOptions.Context;
+            var entityType = cxt.ElementType as EdmEntityType;
+            var table = entityType.Name;
+            var edmType = cxt.Path.EdmType as IEdmCollectionType;
+            List<DbParameter> pars = new List<DbParameter>();
+            string sqlCmd = BuildQueryCmd(queryOptions, pars);
+            EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
+            bool needExpand = queryOptions.SelectExpand != null && !string.IsNullOrEmpty(queryOptions.SelectExpand.RawExpand);
+
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                db.ExecuteReader(sqlCmd, (reader) =>
+                {
+                    EdmEntityObject entity = new EdmEntityObject(entityType);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        reader.SetEntityPropertyValue(i, entity);
+                    }
+                    if (needExpand)
+                    {
+                        Expand(entity, queryOptions.SelectExpand.SelectExpandClause);
+                    }
+                    collection.Add(entity);
+
+                }, (parbuilder) =>
+                {
+                    parbuilder.AddRange(pars.ToArray());
+                },
+                CommandType.Text);
+            }
+            return collection;
         }
 
         public EdmEntityObject Get(string key, ODataQueryOptions queryOptions)
         {
-            throw new NotImplementedException();
+            var cxt = queryOptions.Context;
+            var entityType = cxt.ElementType as EdmEntityType;
+            var keyDefine = entityType.DeclaredKey.First();
+            List<DbParameter> pars = new List<DbParameter>();
+            string cmdTxt = BuildQueryByKeyCmd(key, queryOptions, pars);
+            EdmEntityObject entity = new EdmEntityObject(entityType);
+            bool needExpand = queryOptions.SelectExpand != null && !string.IsNullOrEmpty(queryOptions.SelectExpand.RawExpand);
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                db.ExecuteReader(cmdTxt,
+                    (reader) =>
+                    {
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            reader.SetEntityPropertyValue(i, entity);
+                        }
+                        if (needExpand)
+                        {
+                            Expand(entity, queryOptions.SelectExpand.SelectExpandClause);
+                        }
+                    },
+                    (par) =>
+                    {
+                        par.AddRange(pars.ToArray());
+                    },
+                    CommandType.Text);
+            }
+            return entity;
         }
 
         public int GetCount(ODataQueryOptions queryOptions)
         {
-            throw new NotImplementedException();
+            var cxt = queryOptions.Context;
+            var entityType = cxt.ElementType as EdmEntityType;
+
+            object rtv = null;
+            List<DbParameter> pars = new List<DbParameter>();
+            string sqlCmd = BuildQueryCmd(queryOptions, pars);
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                rtv = db.ExecuteScalar(sqlCmd,
+                    (parBuilder) => { parBuilder.AddRange(pars.ToArray()); },
+                    CommandType.Text);
+            }
+            if (rtv == null)
+                return 0;
+            return (int)rtv;
         }
 
         public int GetFuncResultCount(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions)
         {
-            throw new NotImplementedException();
+            int count = 0;
+            IEdmType edmType = func.ReturnType.Definition;
+            List<DbParameter> sqlpars = new List<DbParameter>();
+            var target = BuildTVFTarget(func, parameterValues, sqlpars);
+
+            var cmd = BuildQueryCmd(queryOptions, sqlpars, target);
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                var r = db.ExecuteScalar(
+                    cmd,
+                    (parBuider) => { parBuider.AddRange(sqlpars.ToArray()); },
+                    CommandType.Text);
+                if (r != null)
+                    count = (int)r;
+            }
+            return count;
         }
 
-        public IEdmObject InvokeFunction(IEdmFunction action, JObject parameterValues, ODataQueryOptions queryOptions = null)
+        public IEdmObject InvokeFunction(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions = null)
         {
-            throw new NotImplementedException();
+            IEdmType edmType = func.ReturnType.Definition;
+            IEdmType elementType = (edmType as IEdmCollectionType).ElementType.Definition;
+            EdmComplexObjectCollection collection = new EdmComplexObjectCollection(new EdmCollectionTypeReference(edmType as IEdmCollectionType));
+            List<DbParameter> sqlpars = new List<DbParameter>();
+            var target = BuildTVFTarget(func, parameterValues, sqlpars);
+            var cmd = BuildQueryCmd(queryOptions, sqlpars, target);
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                db.ExecuteReader(cmd, (reader) =>
+                {
+                    EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        reader.SetEntityPropertyValue(i, entity);
+                    }
+                    collection.Add(entity);
+                },
+                (parBuilder) => { parBuilder.AddRange(sqlpars.ToArray()); },
+                CommandType.Text);
+            }
+            return collection;
         }
 
         public int Merge(string key, IEdmEntityObject entity)
         {
-            throw new NotImplementedException();
+            if (!(entity as Delta).GetChangedPropertyNames().Any())
+                return 0;
+            List<DbParameter> sqlpars = new List<DbParameter>();
+            string cmdTxt = BuildMergeCmd(key, entity, sqlpars);
+            int rtv;
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                rtv = db.ExecuteNonQuery(cmdTxt
+                    , (dbpars) =>
+                    {
+                        dbpars.AddRange(sqlpars.ToArray());
+                    }, CommandType.Text);
+            }
+            return rtv;
         }
 
         public int Replace(string key, IEdmEntityObject entity)
         {
-            string cmdTemplate = "update {0}.[{1}] set {2} where [{3}]=@{3}  ";
-            var entityType = entity.GetEdmType().Definition as EdmEntityType;
-
-            var keyDefine = entityType.DeclaredKey.First();
-            List<string> cols = new List<string>();
-            foreach (var p in entityType.Properties())
-            {
-                if (p.PropertyKind == EdmPropertyKind.Navigation) continue;
-                cols.Add(string.Format("[{0}]=@{0}", p.Name));
-            }
-            if (cols.Count == 0)
-                return 0;
+            List<DbParameter> pars = new List<DbParameter>();
+            string cmdTxt = BuildReplaceCmd(key, entity, pars);
             int rtv;
             using (var db = CreateDbAccess(this.ConnectionString))
             {
-                rtv = db.ExecuteNonQuery(string.Format(cmdTemplate, entityType.Namespace, entityType.Name, string.Join(", ", cols), keyDefine.Name)
-                    , (dbpars) =>
-                    {
-                        foreach (var p in entityType.Properties())
-                        {
-                            if (p.PropertyKind == EdmPropertyKind.Navigation) continue;
-                            if (entity.TryGetPropertyValue(p.Name, out object v))
-                            {
-
-                            }
-                        }
-                    }, CommandType.Text);
+                rtv = db.ExecuteNonQuery(cmdTxt, (dbpars) =>
+                {
+                    dbpars.AddRange(pars.ToArray());
+                }, CommandType.Text);
             }
             return rtv;
         }
         #endregion
 
         protected abstract DbAccess CreateDbAccess(string connectionString);
+        protected abstract string BuildQueryCmd(ODataQueryOptions options, List<DbParameter> pars, string target = "");
+        protected abstract string BuildExpandQueryCmd(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, List<DbParameter> pars);
+        protected abstract string BuildQueryByKeyCmd(string key, ODataQueryOptions options, List<DbParameter> pars);
+        protected abstract string BuildTVFTarget(IEdmFunction func, JObject parameterValues, List<DbParameter> sqlpars);
+        protected abstract string BuildMergeCmd(string key, IEdmEntityObject entity, List<DbParameter> pars);
+        protected abstract string BuildReplaceCmd(string key, IEdmEntityObject entity, List<DbParameter> pars);
+        protected abstract string BuildCreateCmd(IEdmEntityObject entity, List<DbParameter> pars);
+        protected abstract string BuildDeleteCmd(string key, IEdmType elementType, List<DbParameter> pars);
+        void Expand(EdmEntityObject edmEntity, SelectExpandClause expandClause)
+        {
+            foreach (var item1 in expandClause.SelectedItems)
+            {
+                var expanded = item1 as ExpandedNavigationSelectItem;
+                if (expanded == null)
+                    continue;
+                CreateExpandEntity(edmEntity, expanded);
+            }
+        }
+        private void CreateExpandEntity(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded)
+        {
+            List<DbParameter> pars = new List<DbParameter>();
+            string cmdtxt = BuildExpandQueryCmd(edmEntity, expanded, pars);
+            var edmType = expanded.NavigationSource.Type as IEdmCollectionType;
+            var entityType = edmType.ElementType.AsEntity();
+            EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                db.ExecuteReader(cmdtxt, (reader) =>
+                {
+                    EdmEntityObject entity = new EdmEntityObject(entityType);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        reader.SetEntityPropertyValue(i, entity);
+                    }
+                    Expand(entity, expanded.SelectAndExpand);
+                    collection.Add(entity);
+                }, (parbuilder) =>
+                {
+                    parbuilder.AddRange(pars.ToArray());
+                },
+                CommandType.Text);
+            }
+            edmEntity.TrySetPropertyValue(expanded.NavigationSource.Name, collection);
+        }
+
     }
 }
