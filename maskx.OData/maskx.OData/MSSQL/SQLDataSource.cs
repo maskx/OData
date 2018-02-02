@@ -98,7 +98,7 @@ namespace maskx.OData.Sql
             IEdmEntitySet edmSet = null;
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(ModelCommand, (reader) =>
+                db.ExecuteReader(ModelCommand, (reader, resultSet) =>
                 {
                     tableName = reader["TABLE_NAME"].ToString();
                     schemaName = reader["SCHEMA_NAME"].ToString();
@@ -163,7 +163,7 @@ namespace maskx.OData.Sql
 
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(StoredProcedureResultSetCommand, (reader) =>
+                db.ExecuteReader(StoredProcedureResultSetCommand, (reader, resultSet) =>
                 {
                     if (reader.IsDBNull("DATA_TYPE"))
                         return;
@@ -196,7 +196,7 @@ namespace maskx.OData.Sql
             Dictionary<string, ParameterInfo> parsDic = new Dictionary<string, ParameterInfo>();
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(ActionCommand, (reader) =>
+                db.ExecuteReader(ActionCommand, (reader, resultSet) =>
                 {
                     string spName = reader["SPECIFIC_NAME"].ToString();
                     string ns = reader["SCHEMA_NAME"].ToString();
@@ -313,7 +313,7 @@ namespace maskx.OData.Sql
 
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(this.FunctionCommand, (reader) =>
+                db.ExecuteReader(this.FunctionCommand, (reader, resultSet) =>
                 {
                     funcName = reader["SPECIFIC_NAME"].ToString();
                     ns = reader["SCHEMA_NAME"].ToString();
@@ -358,7 +358,7 @@ namespace maskx.OData.Sql
 
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(this.TableValuedResultSetCommand, (reader) =>
+                db.ExecuteReader(this.TableValuedResultSetCommand, (reader, resultSet) =>
                 {
                     var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                     if (et.HasValue)
@@ -397,7 +397,7 @@ namespace maskx.OData.Sql
 
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(this.RelationCommand, (reader) =>
+                db.ExecuteReader(this.RelationCommand, (reader, resultSet) =>
                 {
                     if (fk != reader["FK_NAME"].ToString())
                     {
@@ -468,7 +468,7 @@ namespace maskx.OData.Sql
             string cNmae = string.Empty;
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(this.UserDefinedTableCommand, (reader) =>
+                db.ExecuteReader(this.UserDefinedTableCommand, (reader, resultSet) =>
                 {
                     var et = Utility.DBType2EdmType(reader["DATA_TYPE"].ToString());
                     if (et.HasValue)
@@ -758,7 +758,7 @@ namespace maskx.OData.Sql
 
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(sqlCmd, (reader) =>
+                db.ExecuteReader(sqlCmd, (reader, resultSet) =>
                 {
                     EdmEntityObject entity = new EdmEntityObject(entityType);
                     for (int i = 0; i < reader.FieldCount; i++)
@@ -795,7 +795,7 @@ namespace maskx.OData.Sql
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmdTxt,
-                    (reader) =>
+                    (reader, resultSet) =>
                     {
                         for (int i = 0; i < reader.FieldCount; i++)
                         {
@@ -832,7 +832,7 @@ namespace maskx.OData.Sql
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(cmdtxt, (reader) =>
+                db.ExecuteReader(cmdtxt, (reader, resultSet) =>
                 {
                     EdmEntityObject entity = new EdmEntityObject(entityType);
                     for (int i = 0; i < reader.FieldCount; i++)
@@ -896,7 +896,7 @@ namespace maskx.OData.Sql
             var cmd = BuildSqlQueryCmd(queryOptions, sqlpars, target);
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(cmd, (reader) =>
+                db.ExecuteReader(cmd, (reader, resultSet) =>
                 {
                     EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
                     for (int i = 0; i < reader.FieldCount; i++)
@@ -991,7 +991,7 @@ namespace maskx.OData.Sql
             EdmComplexObjectCollection collection = obj as EdmComplexObjectCollection;
             using (var db = new MSSQLDbAccess(this.ConnectionString))
             {
-                var par = db.ExecuteReader(string.Format("{0}.[{1}]", action.Namespace, action.Name), (reader) =>
+                var par = db.ExecuteReader(string.Format("{0}.[{1}]", action.Namespace, action.Name), (reader, resultSet) =>
                     {
                         EdmComplexObject entity = new EdmComplexObject(elementType);
                         for (int i = 0; i < reader.FieldCount; i++)

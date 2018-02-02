@@ -19,7 +19,7 @@ namespace Test
         [Fact]
         public void DeleteNotExist()
         {
-            var rtv = Common.Delete("Tag(199999)");
+            var rtv = Common.Delete("Tag(19)");
             Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, rtv.Item1);
         }
     }

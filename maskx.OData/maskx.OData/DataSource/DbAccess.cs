@@ -32,14 +32,19 @@ namespace maskx.Database
         #endregion
 
         #region Method
-        public DbParameterCollection ExecuteReader(string commandText, Action<DbDataReader> dataReader, Action<DbParameterCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
+        public DbParameterCollection ExecuteReader(string commandText, Action<DbDataReader, int> dataReader, Action<DbParameterCollection> parametersBuilder = null, CommandType commandType = CommandType.StoredProcedure, int commandTimeout = 0)
         {
             using (DbDataReader reader = CreateReader(commandText, commandTimeout, commandType, parametersBuilder, out DbParameterCollection pars))
             {
                 if (dataReader == null)
                     return pars;
-                while (reader.Read())
-                    dataReader(reader);
+                int resultSet = 0;
+                do
+                {
+                    while (reader.Read())
+                        dataReader(reader, resultSet);
+                    resultSet++;
+                } while (reader.NextResult());
                 reader.Close();
                 return pars;
             }

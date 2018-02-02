@@ -5,14 +5,10 @@ using System.Data.Common;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace maskx.OData.Database
+namespace maskx.OData.DataSource
 {
     public static class Extensions
     {
-        public static string SafeSQLVar(string s)
-        {
-            return Regex.Replace(s, "[^a-zA-Z]", "");
-        }
         internal static void SetEntityPropertyValue(this DbDataReader reader, int fieldIndex, EdmStructuredObject entity)
         {
             string name = reader.GetName(fieldIndex);
@@ -29,7 +25,7 @@ namespace maskx.OData.Database
             }
             else if(et==typeof(bool?) || et == typeof(bool))
             {
-                entity.TrySetPropertyValue(name, reader[fieldIndex].ToString() == "0" ? false : true);
+                entity.TrySetPropertyValue(name, reader[fieldIndex].ToString() != "0");
             }
             else
             {

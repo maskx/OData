@@ -4,11 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace maskx.OData.MySQL
+namespace maskx.OData.DataSource
 {
-    public static class MySqlSelectBinder
+    public static class SelectBinder
     {
-        internal static string ParseSelect(this ODataQueryOptions options)
+        internal static string ParseSelect(this ODataQueryOptions options, DbUtility utility)
         {
             if (options.Count != null)
                 return "count(0)";
@@ -25,13 +25,13 @@ namespace maskx.OData.MySQL
                 {
                     foreach (PropertySegment path in select.SelectedPath)
                     {
-                        s.Add(string.Format("`{0}`", path.Property.Name));
+                        s.Add(utility.SafeDbObject(path.Property.Name));
                     }
                 }
             }
             return string.Join(",", s);
         }
-        internal static string ParseSelect(this ExpandedNavigationSelectItem expanded)
+        internal static string ParseSelect(this ExpandedNavigationSelectItem expanded, DbUtility utility)
         {
             if (expanded.CountOption.HasValue)
                 return "count(0)";
@@ -48,7 +48,7 @@ namespace maskx.OData.MySQL
                 {
                     foreach (PropertySegment path in select.SelectedPath)
                     {
-                        s.Add(string.Format("`{0}`", path.Property.Name));
+                        s.Add(utility.SafeDbObject(path.Property.Name));
                     }
                 }
             }

@@ -21,13 +21,13 @@ namespace Test
         }
         public void Configure(IApplicationBuilder app)
         {
-            var ds = new maskx.OData.Sql.SQL2012("ds","Data Source=.;Initial Catalog=Group;Integrated Security=True");
-            var mySql = new maskx.OData.Database.MySQL("mysql", "Server=localhost;Database=TimeCollection;Uid=root;Pwd = password;");
+            var ds = new maskx.OData.MSSQL.SQLServer("ds","Data Source=.;Initial Catalog=Group;Integrated Security=True");
+            var mySql = new maskx.OData.DataSource.MySQL("mysql", "Server=localhost;Database=TimeCollection;Uid=root;Pwd = password;");
             mySql.Configuration.DefaultSchema = "TimeCollection";
             app.UseMvc(routeBuilder => {
                 routeBuilder.MapDynamicODataServiceRoute("odata",
                     Common._RouterPrefix,
-                    mySql);
+                    ds);
             });
         }
     }

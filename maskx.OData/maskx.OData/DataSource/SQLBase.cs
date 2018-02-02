@@ -11,16 +11,16 @@ using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using Newtonsoft.Json.Linq;
 
-namespace maskx.OData.Database
+namespace maskx.OData.DataSource
 {
-    public abstract class DbSourceBase : IDataSource
+    public abstract class SQLBase : IDataSource
     {
         #region Constructor
-        protected DbSourceBase(string name, string connectionString) : this(name)
+        protected SQLBase(string name, string connectionString) : this(name)
         {
             this.ConnectionString = connectionString;
         }
-        protected DbSourceBase(string name)
+        protected SQLBase(string name)
         {
             this.Name = name;
             this.Configuration = new Configuration();
@@ -88,7 +88,7 @@ namespace maskx.OData.Database
             string currentName = string.Empty;
             string currentNs = string.Empty;
             string entityName = string.Empty;
-            EdmAction action = null;
+            List<(string Name, IEdmTypeReference Type)> pars = new List<(string Name, IEdmTypeReference type)>();
             List<(string Name, IEdmTypeReference Type)> outParameter = new List<(string Name, IEdmTypeReference type)>();
             EdmComplexType root = new EdmComplexType(model.EntityContainer.Namespace, "ActionResultSet", null, false, true);
             model.AddElement(root);
@@ -106,37 +106,42 @@ namespace maskx.OData.Database
                             {
                                 t.AddStructuralProperty(p.Name, p.Type);
                             }
-                            outParameter.Clear();
                             model.AddElement(t);
                             var tr = new EdmComplexTypeReference(t, true);
-                            CreateAction(model, tr, SchemaName, StoredProcedureName);
+                            CreateAction(model, tr, SchemaName, StoredProcedureName, pars);
                         }
                         else
-                            CreateAction(model, defaultReturnType, SchemaName, StoredProcedureName);
+                        {
+                            CreateAction(model, defaultReturnType, SchemaName, StoredProcedureName, pars);
+                        }
                         currentName = StoredProcedureName;
                         currentNs = SchemaName;
+                        pars.Clear();
+                        outParameter.Clear();
                     }
                 }
                 if (string.IsNullOrEmpty(ParameterName))
                 {
-                    CreateAction(model, defaultReturnType, SchemaName, StoredProcedureName);
+                    CreateAction(model, defaultReturnType, SchemaName, StoredProcedureName, pars);
                     currentName = StoredProcedureName;
                     currentNs = SchemaName;
                     outParameter.Clear();
+                    pars.Clear();
                     continue;
                 }
                 var et = GetEdmType(ParameterDataType);
                 if (et.HasValue)
                 {
                     var t = EdmCoreModel.Instance.GetPrimitive(et.Value, true);
-                    var p = action.AddParameter(Configuration.LowerName ? ParameterName.ToLower() : ParameterName, t);
+                    var pname = Configuration.LowerName ? ParameterName.ToLower() : ParameterName;
+                    pars.Add((pname, t));
                     if (ParemeterMode.EndsWith("OUT", StringComparison.InvariantCultureIgnoreCase))
-                        outParameter.Add((p.Name, t));
+                        outParameter.Add((pname, t));
                 }
                 else if (string.IsNullOrEmpty(UserDefinedTypeName))//UDT
                 {
                     var udt = BuildUserDefinedType(UserDefinedTypeSchema, UserDefinedTypeName);
-                    action.AddParameter(Configuration.LowerName ? ParameterName.ToLower() : ParameterName, udt);
+                    pars.Add((Configuration.LowerName ? ParameterName.ToLower() : ParameterName, udt));
                 }
             }
             if (outParameter.Count > 0)
@@ -149,17 +154,23 @@ namespace maskx.OData.Database
                 outParameter.Clear();
                 model.AddElement(t);
                 var tr = new EdmComplexTypeReference(t, true);
-                CreateAction(model, tr, currentNs, currentName);
+                CreateAction(model, tr, currentNs, currentName, pars);
             }
             else
-                CreateAction(model, defaultReturnType, currentNs, currentName);
+                CreateAction(model, defaultReturnType, currentNs, currentName, pars);
 
         }
 
-        private EdmAction CreateAction(EdmModel model, EdmComplexTypeReference returType, string SchemaName, string StoredProcedureName)
+        private EdmAction CreateAction(EdmModel model, EdmComplexTypeReference returType, string SchemaName, string StoredProcedureName, List<(string name, IEdmTypeReference type)> pars)
         {
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
             var action = new EdmAction(SchemaName, StoredProcedureName, returType, false, null);
+
+            foreach (var item in pars)
+            {
+                action.AddParameter(item.name, item.type);
+            }
+
             model.AddElement(action);
             string entityName = action.Namespace == Configuration.DefaultSchema ? action.Name : string.Format("{0}.{1}", action.Namespace, action.Name);
             if (Configuration.LowerName)
@@ -383,7 +394,7 @@ namespace maskx.OData.Database
             }
             return rtv.ToString();
         }
-       
+
         public int Delete(string key, IEdmType elementType)
         {
             List<DbParameter> pars = new List<DbParameter>();
@@ -404,7 +415,26 @@ namespace maskx.OData.Database
             IEdmComplexType edmType = action.ReturnType.Definition as IEdmComplexType;
             EdmComplexObject rtv = new EdmComplexObject(edmType);
 
-            rtv.TrySetPropertyValue("first", 123);
+            using (var db = CreateDbAccess(this.ConnectionString))
+            {
+                var par = db.ExecuteReader(
+                    string.Format("{0}.{1}",
+                        _DbUtility.SafeDbObject(action.Namespace),
+                        _DbUtility.SafeDbObject(action.Name)),
+                    (reader, resultSet) =>
+                    {
+
+                    }, (pars) =>
+                    {
+
+                    });
+                foreach (var outp in edmType.Properties())
+                {
+                    var v = par[outp.Name].Value;
+                    if (DBNull.Value != v)
+                        rtv.TrySetPropertyValue(outp.Name, v);
+                }
+            }
             return rtv;
         }
 
@@ -421,7 +451,7 @@ namespace maskx.OData.Database
 
             using (var db = CreateDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(sqlCmd, (reader) =>
+                db.ExecuteReader(sqlCmd, (reader, resultSet) =>
                 {
                     EdmEntityObject entity = new EdmEntityObject(entityType);
                     for (int i = 0; i < reader.FieldCount; i++)
@@ -455,7 +485,7 @@ namespace maskx.OData.Database
             using (var db = CreateDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmdTxt,
-                    (reader) =>
+                    (reader, resultSet) =>
                     {
                         for (int i = 0; i < reader.FieldCount; i++)
                         {
@@ -524,7 +554,7 @@ namespace maskx.OData.Database
             var cmd = BuildQueryCmd(queryOptions, sqlpars, target);
             using (var db = CreateDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(cmd, (reader) =>
+                db.ExecuteReader(cmd, (reader, resultSet) =>
                 {
                     EdmComplexObject entity = new EdmComplexObject(elementType as IEdmComplexType);
                     for (int i = 0; i < reader.FieldCount; i++)
@@ -574,14 +604,167 @@ namespace maskx.OData.Database
         #endregion
 
         protected abstract DbAccess CreateDbAccess(string connectionString);
-        protected abstract string BuildQueryCmd(ODataQueryOptions options, List<DbParameter> pars, string target = "");
-        protected abstract string BuildExpandQueryCmd(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, List<DbParameter> pars);
-        protected abstract string BuildQueryByKeyCmd(string key, ODataQueryOptions options, List<DbParameter> pars);
-        protected abstract string BuildTVFTarget(IEdmFunction func, JObject parameterValues, List<DbParameter> sqlpars);
-        protected abstract string BuildMergeCmd(string key, IEdmEntityObject entity, List<DbParameter> pars);
-        protected abstract string BuildReplaceCmd(string key, IEdmEntityObject entity, List<DbParameter> pars);
-        protected abstract string BuildCreateCmd(IEdmEntityObject entity, List<DbParameter> pars);
-        protected abstract string BuildDeleteCmd(string key, IEdmType elementType, List<DbParameter> pars);
+        protected abstract DbUtility _DbUtility { get; }
+        protected abstract string GetCmdTemplete(MethodType methodType);
+        protected abstract string GetCmdTemplete(MethodType methodType, ODataQueryOptions options);
+        protected abstract string GetCmdTemplete(MethodType methodType, ExpandedNavigationSelectItem expanded);
+
+
+        protected virtual string BuildTVFTarget(IEdmFunction func, JObject parameterValues, List<DbParameter> sqlpars)
+        {
+            string templete = "{0}.{1}({2})";
+            sqlpars = new List<DbParameter>();
+            List<string> pars = new List<string>();
+            foreach (var p in func.Parameters)
+            {
+                var v = (parameterValues[p.Name] as JValue).Value.ChangeType(p.Type.PrimitiveKind());
+                var par = _DbUtility.CreateParameter(v, sqlpars);
+            }
+            return string.Format(templete, func.Namespace, func.Name, string.Join(",", sqlpars.ConvertAll<string>(p => p.ParameterName)));
+        }
+        protected virtual string BuildExpandQueryCmd(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, List<DbParameter> pars)
+        {
+            var entityType = expanded.NavigationSource.EntityType();
+            var wp = new List<DbParameter>();
+            foreach (NavigationPropertySegment item2 in expanded.PathToNavigationProperty)
+            {
+                foreach (var p in item2.NavigationProperty.ReferentialConstraint.PropertyPairs)
+                {
+                    edmEntity.TryGetPropertyValue(p.DependentProperty.Name, out object v);
+                    var par = _DbUtility.CreateParameter(v, pars);
+                    wp.Add(par);
+                }
+            }
+            string where = " where " + string.Join("and", wp.ConvertAll<string>(item => item.ParameterName));
+
+            return string.Format(GetCmdTemplete(MethodType.Get, expanded)
+                , expanded.TopOption.HasValue ? expanded.TopOption.Value.ToString() : string.Empty
+                , expanded.ParseSelect(_DbUtility)
+                , entityType.Namespace
+                , entityType.Name
+                , where
+                , expanded.ParseFilter(pars, _DbUtility)
+                , expanded.ParseOrderBy(_DbUtility)
+                , expanded.SkipOption.HasValue ? expanded.SkipOption.Value.ToString() : string.Empty);
+        }
+
+        protected virtual string BuildQueryCmd(ODataQueryOptions options, List<DbParameter> pars, string target = "")
+        {
+            var cxt = options.Context;
+            var entityType = cxt.ElementType as EdmEntityType;
+            var keyDefine = entityType.DeclaredKey.First();
+            return string.Format(GetCmdTemplete(MethodType.Get, options)
+                , options.Top?.RawValue
+                , options.ParseSelect(_DbUtility)
+                , _DbUtility.SafeDbObject(entityType.Namespace)
+                , string.IsNullOrEmpty(target) ? _DbUtility.SafeDbObject(entityType.Name) : target
+                , options.ParseFilter(pars, _DbUtility)
+                , options.ParseOrderBy(_DbUtility)
+                , options.Skip?.RawValue);
+        }
+
+        protected virtual string BuildCreateCmd(IEdmEntityObject entity, List<DbParameter> pars)
+        {
+            var edmType = entity.GetEdmType();
+            var entityType = edmType.Definition as EdmEntityType;
+
+            List<string> cols = new List<string>();
+            List<string> ps = new List<string>();
+            object v = null;
+            foreach (var p in (entity as Delta).GetChangedPropertyNames())
+            {
+                entity.TryGetPropertyValue(p, out v);
+                cols.Add(_DbUtility.SafeDbObject(p));
+                var par = _DbUtility.CreateParameter(v, pars);
+                ps.Add(par.ParameterName);
+            }
+            return string.Format(GetCmdTemplete(MethodType.Create),
+               _DbUtility.SafeDbObject(entityType.Namespace),
+               _DbUtility.SafeDbObject(entityType.Name),
+                string.Join(", ", cols),
+                string.Join(", ", ps));
+        }
+        protected virtual string BuildQueryByKeyCmd(string key, ODataQueryOptions options, List<DbParameter> pars)
+        {
+            var cxt = options.Context;
+            var entityType = cxt.ElementType as EdmEntityType;
+            var keyDefine = entityType.DeclaredKey.First();
+            string cmdSql = "select {0} from {1} where {2}={3}";
+            var par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+
+            return string.Format(cmdSql
+                , options.ParseSelect(_DbUtility)
+                , _DbUtility.SafeDbObject(entityType.Name)
+                , _DbUtility.SafeDbObject(keyDefine.Name),
+                par.ParameterName);
+        }
+        protected virtual string BuildDeleteCmd(string key, IEdmType elementType, List<DbParameter> pars)
+        {
+            var entityType = elementType as EdmEntityType;
+            var keyDefine = entityType.DeclaredKey.First();
+            var par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+            return string.Format("delete from  {0}.{1} where {2}={3};",
+               _DbUtility.SafeDbObject(entityType.Namespace),
+               _DbUtility.SafeDbObject(entityType.Name),
+               _DbUtility.SafeDbObject(keyDefine.Name),
+               par.ParameterName);
+        }
+        protected virtual string BuildReplaceCmd(string key, IEdmEntityObject entity, List<DbParameter> pars)
+        {
+            string cmdTemplate = "update {0}.{1} set {2} where {3}={4}";
+            var entityType = entity.GetEdmType().Definition as EdmEntityType;
+            var keyDefine = entityType.DeclaredKey.First();
+            List<string> cols = new List<string>();
+            DbParameter par = null;
+            object v = null;
+
+            foreach (var p in entityType.Properties())
+            {
+                if (p.PropertyKind == EdmPropertyKind.Navigation) continue;
+                if (entity.TryGetPropertyValue(p.Name, out v))
+                {
+                    if (keyDefine.Name == p.Name) continue;
+                    par = _DbUtility.CreateParameter(v, pars);
+                    cols.Add(string.Format("{0}={1}", _DbUtility.SafeDbObject(p.Name), par.ParameterName));
+                }
+            }
+            par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+
+            return string.Format(cmdTemplate,
+                _DbUtility.SafeDbObject(entityType.Namespace),
+                _DbUtility.SafeDbObject(entityType.Name),
+                string.Join(",", cols),
+               _DbUtility.SafeDbObject(keyDefine.Name),
+                par.ParameterName);
+        }
+        protected virtual string BuildMergeCmd(string key, IEdmEntityObject entity, List<DbParameter> pars)
+        {
+            string cmdTemplate = "update {0}.{1} set {2} where {3}={4} ";
+            var entityType = entity.GetEdmType().Definition as EdmEntityType;
+            var keyDefine = entityType.DeclaredKey.First();
+            List<string> cols = new List<string>();
+            string safep = string.Empty;
+            object v = null;
+            DbParameter par = null;
+            foreach (var p in (entity as Delta).GetChangedPropertyNames())
+            {
+                if (entity.TryGetPropertyValue(p, out v))
+                {
+                    par = _DbUtility.CreateParameter(v, pars);
+                    cols.Add(string.Format("{0}={1}", _DbUtility.SafeDbObject(p), par.ParameterName));
+                }
+            }
+            par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+            return string.Format(cmdTemplate,
+               _DbUtility.SafeDbObject(entityType.Namespace),
+               _DbUtility.SafeDbObject(entityType.Name),
+                string.Join(", ", cols),
+               _DbUtility.SafeDbObject(keyDefine.Name),
+                par.ParameterName);
+        }
+
+
+
         void Expand(EdmEntityObject edmEntity, SelectExpandClause expandClause)
         {
             foreach (var item1 in expandClause.SelectedItems)
@@ -601,7 +784,7 @@ namespace maskx.OData.Database
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
             using (var db = CreateDbAccess(this.ConnectionString))
             {
-                db.ExecuteReader(cmdtxt, (reader) =>
+                db.ExecuteReader(cmdtxt, (reader, resultSet) =>
                 {
                     EdmEntityObject entity = new EdmEntityObject(entityType);
                     for (int i = 0; i < reader.FieldCount; i++)

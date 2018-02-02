@@ -1,0 +1,24 @@
+﻿using maskx.OData.DataSource;
+using System;
+using System.Collections.Generic;
+using System.Data.Common;
+using System.Text;
+
+namespace maskx.OData.MySQL
+{
+    public class MySQLDbUtility : DbUtility
+    {
+        public override DbParameter CreateParameter(object value, List<DbParameter> pars)
+        {
+            var par = new MySql.Data.MySqlClient.MySqlParameter("?p" + pars.Count, value);
+            pars.Add(par);
+            return par;
+        }
+
+        public override string SafeDbObject(string obj)
+        {
+            return string.Format("`{0}`", obj);
+        }
+
+    }
+}
