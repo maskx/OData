@@ -224,7 +224,81 @@ namespace maskx.OData.DataSource
 
         static string BindSingleValueFunctionCallNode(SingleValueFunctionCallNode node, List<DbParameter> pars, DbUtility dbUtility)
         {
-            return string.Empty;
+            var arguments = node.Parameters.ToList();
+            string name = string.Empty;
+            string parName = string.Empty;
+            object parValue = null;
+            DbParameter dbpar = null;
+            switch (node.Name)
+            {
+                case "concat":
+                    List<string> p = new List<string>();
+                    foreach (var item in arguments)
+                    {
+                        parValue = Bind(item, pars, dbUtility);
+                        dbpar = dbUtility.CreateParameter(parValue, pars);
+                        p.Add(dbpar.ParameterName);
+                    }
+                    return string.Format("concat({0})", string.Join(",", p));
+                case "contains":
+                    name = dbUtility.SafeDbObject(Bind(arguments[0], pars, dbUtility));
+                    parValue = string.Format("%{0}%", (arguments[1] as ConstantNode).Value);
+                    dbpar = dbUtility.CreateParameter(parValue, pars);
+                    return string.Format("{0} like {1}", name, dbpar.ParameterName);
+                case "endswith":
+                    name = dbUtility.SafeDbObject(Bind(arguments[0], pars, dbUtility));
+                    parValue = string.Format("%{0}", (arguments[1] as ConstantNode).Value);
+                    dbpar = dbUtility.CreateParameter(parValue, pars);
+                    return string.Format("{0} like {1}", name, dbpar.ParameterName);
+                case "startswith":
+                    name = Bind(arguments[0], pars, dbUtility);
+                    parValue = string.Format("{0}%", (arguments[1] as ConstantNode).Value);
+                    dbpar = dbUtility.CreateParameter(parValue, pars);
+                    return string.Format("{0} like {1}", name, parName);
+                case "length":
+                    return string.Format("len({0})", Bind(arguments[0], pars, dbUtility));
+                case "indexof":
+                    name = dbUtility.SafeDbObject(Bind(arguments[0], pars, dbUtility));
+                    parValue = (arguments[1] as ConstantNode).Value;
+                    dbpar = dbUtility.CreateParameter(parValue, pars);
+                    return string.Format("charindex({0},{1})", dbpar.ParameterName, name);
+                case "substring":
+                    parValue = Bind(arguments[0], pars,dbUtility);
+                    dbpar = dbUtility.CreateParameter(parValue, pars);
+                    return string.Format("SUBSTRING({0},{1},{2})",
+                        dbpar.ParameterName,
+                        (arguments[1] as ConstantNode).Value,
+                       arguments.Count > 2 ? (arguments[2] as ConstantNode).Value : 0);
+                case "tolower":
+                    parValue = Bind(arguments[0], pars,dbUtility);
+                    dbpar = dbUtility.CreateParameter(parValue, pars);
+                    return "LOWER(" + dbpar.ParameterName + ")";
+                case "toupper":
+                    parValue = Bind(arguments[0], pars,dbUtility);
+                    dbpar = dbUtility.CreateParameter(parValue, pars);
+                    return "UPPER(" + parName + ")";
+                case "trim":
+                case "year":
+                case "years":
+                case "month":
+                case "months":
+                case "day":
+                case "days":
+                case "hour":
+                case "hours":
+                case "minute":
+                case "minutes":
+                case "second":
+                case "seconds":
+                case "round":
+                case "floor":
+                case "ceiling":
+                    parValue = Bind(arguments[0], pars,dbUtility);
+                    dbpar = dbUtility.CreateParameter(parValue,pars);
+                    return node.Name + "(" + parName + ")";
+                default:
+                    throw new NotImplementedException();
+            }
         }
         static string BindBinaryOperatorNode(BinaryOperatorNode binaryOperatorNode, List<DbParameter> pars, DbUtility dbUtility)
         {

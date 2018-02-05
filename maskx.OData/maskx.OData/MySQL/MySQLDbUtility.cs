@@ -15,6 +15,12 @@ namespace maskx.OData.MySQL
             return par;
         }
 
+        public override DbParameter CreateParameter(string name, object value)
+        {
+            var par = new MySql.Data.MySqlClient.MySqlParameter(name, value);
+            return par;
+        }
+
         public override string SafeDbObject(string obj)
         {
             return string.Format("`{0}`", obj);

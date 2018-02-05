@@ -198,8 +198,8 @@ namespace maskx.OData.Sql
             {
                 db.ExecuteReader(ActionCommand, (reader, resultSet) =>
                 {
-                    string spName = reader["SPECIFIC_NAME"].ToString();
-                    string ns = reader["SCHEMA_NAME"].ToString();
+                    string spName = reader["ROUTINE_NAME"].ToString();
+                    string ns = reader["ROUTINE_SCHEMA"].ToString();
                     if (Configuration.LowerName)
                     {
                         spName = spName.ToLower();
@@ -230,7 +230,7 @@ namespace maskx.OData.Sql
                             {
                                 Name = pname,
                                 SqlDbType = Utility.SqlTypeString2SqlType(reader["DATA_TYPE"].ToString()),
-                                Length = reader.IsDBNull("MAX_LENGTH") ? 0 : (int)reader["MAX_LENGTH"],
+                                Length = reader.IsDBNull("CHARACTER_MAXIMUM_LENGTH") ? 0 : (int)reader["CHARACTER_MAXIMUM_LENGTH"],
                                 Direction = reader["PARAMETER_MODE"].ToString() == "INOUT" ? ParameterDirection.Input : ParameterDirection.Output
                             });
                             if (reader["PARAMETER_MODE"].ToString() == "INOUT")

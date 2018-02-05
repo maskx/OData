@@ -116,7 +116,7 @@ namespace maskx.OData
             var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var path = Request.ODataFeature().Path;
             OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
-            IEdmType elementType = seg.EdmType;
+   
             JObject jobj = null;
             string s = Request.GetRawBodyStringAsync().Result;
             if (!string.IsNullOrEmpty(s))

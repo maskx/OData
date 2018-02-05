@@ -350,7 +350,7 @@ select
                     yield return (reader["SCHEMA_NAME"].ToString(),
                                        reader["TABLE_NAME"].ToString(),
                                         reader["COLUMN_NAME"].ToString(),
-                                        reader["DATA_TYPE"].ToString(), 
+                                        reader["DATA_TYPE"].ToString(),
                                         !reader.IsDBNull("COLUMN_KEY"));
                 }
                 conn.Close();
@@ -365,30 +365,25 @@ select
             GetTableValueType(string schema, string name)
         {
             String cmdtxt = @"
-select  
-		c.[name] as [COLUMN_NAME]
-		,s.[name] as [SCHEMA_NAME]
-		,type_name(c.user_type_id) as [DATA_TYPE]
-		,c.max_length as [COLUMN_LENGTH]
-		,c.is_nullable as [IS_NULLABLE]
-	from sys.table_types tt
-		INNER JOIN sys.columns c on c.object_id = tt.type_table_object_id
-		INNER JOIN [sys].[schemas] as [s] on [s].[schema_id]=[tt].[schema_id]
-	where tt.[name] =@NAME
-		and s.[name]=@SCHEMA_NAME
-   ";
+    select
+		col.name as COLUMN_NAME
+		,type_name(col.user_type_id) as DATA_TYPE
+        ,MAX_LENGTH AS COLUMN_LENGTH
+        ,IS_NULLABLE
+	from sys.all_columns as col
+	where col.object_id=object_id(@NAME)
+";
             using (SqlConnection conn = new SqlConnection(this.ConnectionString))
             {
                 SqlCommand cmd = new SqlCommand(cmdtxt, conn);
-                cmd.Parameters.Add(new SqlParameter("@NAME", name));
-                cmd.Parameters.Add(new SqlParameter("@SCHEMA_NAME", schema));
+                cmd.Parameters.Add(new SqlParameter("@NAME", string.Format("{0}.{1}", schema, name)));
                 conn.Open();
                 var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
                     yield return (reader["COLUMN_NAME"].ToString(),
                                         reader["DATA_TYPE"].ToString(),
-                                        (int)reader["COLUMN_LENGTH"],
+                                        (Int16)reader["COLUMN_LENGTH"],
                                         (bool)reader["IS_NULLABLE"]
                                        );
                 }
@@ -427,7 +422,7 @@ select
                 {
                     yield return (reader["COLUMN_NAME"].ToString(),
                                         reader["DATA_TYPE"].ToString(),
-                                        (int)reader["COLUMN_LENGTH"],
+                                        (Int16)reader["COLUMN_LENGTH"],
                                         (bool)reader["IS_NULLABLE"]
                                        );
                 }
@@ -478,7 +473,7 @@ select
                     yield return (reader["SCHEMA_NAME"].ToString(),
                                        reader["TABLE_NAME"].ToString(),
                                         reader["COLUMN_NAME"].ToString(),
-                                        reader["DATA_TYPE"].ToString(), 
+                                        reader["DATA_TYPE"].ToString(),
                                         !reader.IsDBNull("COLUMN_KEY"));
                 }
                 conn.Close();

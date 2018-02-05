@@ -16,16 +16,14 @@ namespace Test
         {
             var rtv = Common.Post("GetEdmModelInfo()", null);
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.Equal(2, rtv.Item2.Count);
-            Assert.EndsWith("$metadata#dbo.ActionResultSet", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#ns.ActionResultSet", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
         public void WithParameterSuccess()
         {
             var rtv = Common.Post("GetEdmSPResultSet()", new { Name = "GetEdmModelInfo" });
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.Equal(2, rtv.Item2.Count);
-            Assert.EndsWith("$metadata#dbo.GetEdmSPResultSet_RtvType", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#ns.ActionResultSet", rtv.Item2.Property("@odata.context").Value.ToString());
         }
     }
 }

@@ -53,7 +53,7 @@ namespace Test
             {
                 app.UseMvc(routeBuilder =>
                 {
-                    var dataSource = new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
+                    var dataSource = new maskx.OData.MSSQL.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
                     dataSource.Configuration.DefaultSchema = "schemaB";
                     routeBuilder.MapDynamicODataServiceRoute("odata1", "db1", dataSource);
                 });
@@ -95,7 +95,7 @@ namespace Test
             {
                 app.UseMvc(routeBuilder =>
                 {
-                    var dataSource = new maskx.OData.Sql.SQL2012("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
+                    var dataSource = new maskx.OData.MSSQL.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
                     dataSource.Configuration.LowerName = true;
                     routeBuilder.MapDynamicODataServiceRoute("odata1", "db1", dataSource);
                 });
