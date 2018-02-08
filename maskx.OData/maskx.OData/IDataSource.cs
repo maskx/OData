@@ -31,7 +31,7 @@ namespace maskx.OData
         /// <param name="parameterValues"></param>
         /// <param name="queryOptions"></param>
         /// <returns></returns>
-        IEdmObject InvokeFunction(IEdmFunction action, JObject parameterValues, ODataQueryOptions queryOptions = null);
+        IEdmObject InvokeFunction(ODataQueryOptions queryOptions);
         /// <summary>
         /// 
         /// </summary>
@@ -39,7 +39,7 @@ namespace maskx.OData
         /// <param name="parameterValues"></param>
         /// <param name="queryOptions"></param>
         /// <returns></returns>
-        int GetFuncResultCount(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions);
+        int GetFuncResultCount(ODataQueryOptions queryOptions);
         /// <summary>
         /// 
         /// </summary>

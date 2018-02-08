@@ -80,30 +80,16 @@ namespace maskx.OData
             ODataQueryContext queryContext = new ODataQueryContext(Request.GetModel(), elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
 
-            JObject pars = new JObject();
-            foreach (var p in seg.Parameters)
-            {
-                try
-                {
-                    var n = (p.Value as ConstantNode).Value;
-                    pars.Add(p.Name, new JValue(n));
-                }
-                catch (Exception ex)
-                {
-                    return StatusCode((int)HttpStatusCode.InternalServerError, ex);
-                }
-            }
+
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Function,
-                Parameters = pars,
                 Target = seg.Identifier,
                 QueryOptions = queryOptions
             };
             return Excute(ri, () =>
             {
-                var func = (seg.OperationImports.FirstOrDefault() as EdmFunctionImport).Function;
-                return ds.InvokeFunction(func, ri.Parameters, ri.QueryOptions);
+                return ds.InvokeFunction(ri.QueryOptions);
 
             });
         }
@@ -113,10 +99,11 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult DoAction()
         {
+            var options = GetQueryOptions();
             var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var path = Request.ODataFeature().Path;
             OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
-   
+
             JObject jobj = null;
             string s = Request.GetRawBodyStringAsync().Result;
             if (!string.IsNullOrEmpty(s))
@@ -132,7 +119,6 @@ namespace maskx.OData
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Action,
-                Parameters = jobj,
                 Target = seg.Identifier,
                 QueryOptions = null
             };
@@ -199,8 +185,7 @@ namespace maskx.OData
             };
             return Excute(ri, () =>
             {
-                var func = (seg.OperationImports.FirstOrDefault() as EdmFunctionImport).Function;
-                return ds.GetFuncResultCount(func, ri.Parameters, ri.QueryOptions);
+                return ds.GetFuncResultCount(ri.QueryOptions);
             });
         }
 

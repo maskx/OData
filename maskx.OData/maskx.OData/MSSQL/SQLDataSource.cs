@@ -1015,6 +1015,16 @@ namespace maskx.OData.Sql
             return rtv;
         }
 
+        public IEdmObject InvokeFunction(ODataQueryOptions queryOptions)
+        {
+            throw new NotImplementedException();
+        }
+
+        public int GetFuncResultCount(ODataQueryOptions queryOptions)
+        {
+            throw new NotImplementedException();
+        }
+
         #endregion
     }
 }

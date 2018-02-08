@@ -539,9 +539,8 @@ namespace maskx.OData.DataSource
         public EdmEntityObjectCollection Get(ODataQueryOptions queryOptions)
         {
             var cxt = queryOptions.Context;
-            var entityType = cxt.ElementType as EdmEntityType;
-            var table = entityType.Name;
-            var edmType = cxt.Path.EdmType as IEdmCollectionType;
+            EdmEntityType entityType = cxt.ElementType as EdmEntityType;
+            IEdmCollectionType edmType = cxt.Path.EdmType as IEdmCollectionType;
             List<DbParameter> pars = new List<DbParameter>();
             string sqlCmd = BuildQueryCmd(queryOptions, pars);
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
@@ -622,14 +621,14 @@ namespace maskx.OData.DataSource
             return (int)rtv;
         }
 
-        public int GetFuncResultCount(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions)
+        public int GetFuncResultCount(ODataQueryOptions queryOptions)
         {
             int count = 0;
+            var ois = queryOptions.Context.Path.Segments.First() as OperationImportSegment;
+            var func = ois.OperationImports.First().Operation;
             IEdmType edmType = func.ReturnType.Definition;
             List<DbParameter> sqlpars = new List<DbParameter>();
-            var target = BuildTVFTarget(func, parameterValues, sqlpars);
-
-            var cmd = BuildQueryCmd(queryOptions, sqlpars, target);
+            var cmd = BuildQueryCmd(queryOptions, sqlpars);
             using (var db = CreateDbAccess(this.ConnectionString))
             {
                 var r = db.ExecuteScalar(
@@ -642,14 +641,15 @@ namespace maskx.OData.DataSource
             return count;
         }
 
-        public IEdmObject InvokeFunction(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions = null)
+        public IEdmObject InvokeFunction(ODataQueryOptions queryOptions)
         {
+            var ois = queryOptions.Context.Path.Segments.First() as OperationImportSegment;
+            var func = ois.OperationImports.First().Operation;
             IEdmType edmType = func.ReturnType.Definition;
             IEdmType elementType = (edmType as IEdmCollectionType).ElementType.Definition;
             EdmComplexObjectCollection collection = new EdmComplexObjectCollection(new EdmCollectionTypeReference(edmType as IEdmCollectionType));
             List<DbParameter> sqlpars = new List<DbParameter>();
-            var target = BuildTVFTarget(func, parameterValues, sqlpars);
-            var cmd = BuildQueryCmd(queryOptions, sqlpars, target);
+            var cmd = BuildQueryCmd(queryOptions, sqlpars);
             using (var db = CreateDbAccess(this.ConnectionString))
             {
                 db.ExecuteReader(cmd, (reader, resultSet) =>
@@ -708,18 +708,6 @@ namespace maskx.OData.DataSource
         protected abstract string GetCmdTemplete(MethodType methodType, ExpandedNavigationSelectItem expanded);
 
 
-        protected virtual string BuildTVFTarget(IEdmFunction func, JObject parameterValues, List<DbParameter> sqlpars)
-        {
-            string templete = "{0}.{1}({2})";
-            sqlpars = new List<DbParameter>();
-            List<string> pars = new List<string>();
-            foreach (var p in func.Parameters)
-            {
-                var v = (parameterValues[p.Name] as JValue).Value.ChangeType(p.Type.PrimitiveKind());
-                var par = _DbUtility.CreateParameter(v, sqlpars);
-            }
-            return string.Format(templete, func.Namespace, func.Name, string.Join(",", sqlpars.ConvertAll<string>(p => p.ParameterName)));
-        }
         protected virtual string BuildExpandQueryCmd(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, List<DbParameter> pars)
         {
             var entityType = expanded.NavigationSource.EntityType();
@@ -746,19 +734,35 @@ namespace maskx.OData.DataSource
                 , expanded.SkipOption.HasValue ? expanded.SkipOption.Value.ToString() : string.Empty);
         }
 
-        protected virtual string BuildQueryCmd(ODataQueryOptions options, List<DbParameter> pars, string target = "")
+        protected virtual string BuildQueryCmd(ODataQueryOptions options, List<DbParameter> pars)
         {
             var cxt = options.Context;
-            if(string.IsNullOrEmpty(target))
+            string ns, name;
+            if (cxt.Path.Segments.First() is OperationImportSegment ois)
             {
-
+                var func = ois.OperationImports.First().Operation;
+                DbParameter par;
+                List<DbParameter> funcPList = new List<DbParameter>();
+                foreach (var item in ois.Parameters)
+                {
+                    par = _DbUtility.CreateParameter((item.Value as ConstantNode).Value, pars);
+                    funcPList.Add(par);
+                }
+                ns = func.Namespace;
+                name = string.Format("{0}({1})", _DbUtility.SafeDbObject(func.Name), string.Join(",", funcPList.ConvertAll<string>(p => p.ParameterName)));
             }
-            var entityType = cxt.ElementType as EdmEntityType;
+            else
+            {
+                var entityType = cxt.ElementType as EdmEntityType;
+                ns = _DbUtility.SafeDbObject(entityType.Namespace);
+                name = _DbUtility.SafeDbObject(entityType.Name);
+            }
+
             return string.Format(GetCmdTemplete(MethodType.Get, options)
                 , options.Top?.RawValue
                 , options.ParseSelect(_DbUtility)
-                , _DbUtility.SafeDbObject(entityType.Namespace)
-                , string.IsNullOrEmpty(target) ? _DbUtility.SafeDbObject(entityType.Name) : target
+                , ns
+                , name
                 , options.ParseFilter(pars, _DbUtility)
                 , options.ParseOrderBy(_DbUtility)
                 , options.Skip?.RawValue);
