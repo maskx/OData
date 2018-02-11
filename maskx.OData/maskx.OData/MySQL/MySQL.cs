@@ -12,7 +12,7 @@ using Microsoft.OData.UriParser;
 using MySql.Data.MySqlClient;
 using Newtonsoft.Json.Linq;
 
-namespace maskx.OData.DataSource
+namespace maskx.OData.SQLSource
 {
     public class MySQL : SQLBase
     {
@@ -102,7 +102,7 @@ from information_schema.ROUTINES AS r
         p.SPECIFIC_SCHEMA =r.ROUTINE_SCHEMA";
             using (MySqlConnection conn = new MySqlConnection(this.ConnectionString))
             {
-                
+
                 MySqlCommand cmd = new MySqlCommand(cmdtxt, conn);
                 conn.Open();
                 var reader = cmd.ExecuteReader();
@@ -139,11 +139,12 @@ from information_schema.ROUTINES AS r
     ,NUMERIC_SCALE
     ,COLUMN_KEY
     from INFORMATION_SCHEMA.COLUMNS
+ where TABLE_SCHEMA='{0}'
    ";
             using (MySqlConnection conn = new MySqlConnection(this.ConnectionString))
             {
-                
-                MySqlCommand cmd = new MySqlCommand(cmdtxt, conn);
+
+                MySqlCommand cmd = new MySqlCommand(string.Format(cmdtxt, conn.Database), conn);
                 conn.Open();
                 var reader = cmd.ExecuteReader();
                 while (reader.Read())
@@ -184,7 +185,8 @@ from information_schema.ROUTINES AS r
             yield break;
         }
 
-        protected override IEnumerable<(string SchemaName, string ViewName, string ColumnName, string DataType, bool isKey)> GetViews()
+        protected override IEnumerable<(string SchemaName, string ViewName, string ColumnName, string DataType, bool isKey)>
+            GetViews()
         {
             yield break;
         }
@@ -193,94 +195,20 @@ from information_schema.ROUTINES AS r
         {
             return new DbAccess(MySql.Data.MySqlClient.MySqlClientFactory.Instance, connectionString);
         }
-        protected override string GetCmdTemplete(MethodType methodType, ODataQueryOptions options)
+        protected override string CreateCommandTemplete
         {
-            switch (methodType)
+            get
             {
-                case MethodType.Replace:
-                    break;
-                case MethodType.Merge:
-                    break;
-                case MethodType.Delete:
-                    break;
-                case MethodType.Create:
-                    return "insert into {0}.{1} ({2}) values ({3}); select LAST_INSERT_ID() ";
-                case MethodType.Get:
-                    //0:Top,1:Select,2:Schema,3:Table,4:where,5:orderby,6:skip
-                    if (options.Skip != null)
-                        return "select {1} from {2}.{3} {4} {5} LIMIT {0} OFFSET {6}";
-                    if (options.Top != null)
-                        return "select top {0} {1} from {2}.{3} {4} {5}";
-                    return "select {0} {1} from {2}.{3} {4} {5}";
-                case MethodType.Count:
-                    break;
-                case MethodType.Function:
-                    break;
-                case MethodType.Action:
-                    break;
-                default:
-                    break;
+                return "insert into {0}.{1} ({2}) values ({3}); select LAST_INSERT_ID() ";
             }
-            return string.Empty;
         }
-
-        protected override string GetCmdTemplete(MethodType methodType, ExpandedNavigationSelectItem expanded)
+        protected override string QueryPagingCommandTemplete
         {
-            switch (methodType)
+            get
             {
-                case MethodType.Replace:
-                    break;
-                case MethodType.Merge:
-                    break;
-                case MethodType.Delete:
-                    break;
-                case MethodType.Create:
-                    return "insert into {0}.{1} ({2}) values ({3}); select LAST_INSERT_ID() ";
-                case MethodType.Get:
-                    //0:Top,1:Select,2:Schema,3:Table,4:where,5:orderby,6:skip
-                    if (expanded.SkipOption != null)
-                        return "select {1} from {2}.{3} {4} {5} LIMIT {0} OFFSET {6}";
-                    if (expanded.TopOption != null)
-                        return "select top {0} {1} from {2}.{3} {4} {5}";
-                    return "select {0} {1} from {2}.{3} {4} {5}";
-                case MethodType.Count:
-                    break;
-                case MethodType.Function:
-                    break;
-                case MethodType.Action:
-                    break;
-                default:
-                    break;
+                return "select {1} from {2}.{3} {4} order by {5} LIMIT {0} OFFSET {6}";
             }
-            return string.Empty;
         }
-
-        protected override string GetCmdTemplete(MethodType methodType)
-        {
-            switch (methodType)
-            {
-                case MethodType.Replace:
-                    break;
-                case MethodType.Merge:
-                    break;
-                case MethodType.Delete:
-                    break;
-                case MethodType.Create:
-                    return "insert into {0}.{1} ({2}) values ({3}); select LAST_INSERT_ID() ";
-                case MethodType.Get:
-                    break;
-                case MethodType.Count:
-                    break;
-                case MethodType.Function:
-                    break;
-                case MethodType.Action:
-                    break;
-                default:
-                    break;
-            }
-            return string.Empty;
-        }
-
         readonly MySQLDbUtility _MySQLDbUtility = new MySQLDbUtility();
         protected override DbUtility _DbUtility { get { return _MySQLDbUtility; } }
     }

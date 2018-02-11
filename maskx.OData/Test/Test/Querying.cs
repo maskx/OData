@@ -51,7 +51,6 @@ namespace Test
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.Equal(2, rtv.Item2.Count);
             Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
-
         }
     }
 

@@ -22,7 +22,7 @@ namespace Test
         {
             var rtv = Common.GetJObject("ChildrenTags(ParentId=2)?$top=3");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#Collection(dbo.ChildrenTags_RtvCollectionType)", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#Collection(dbo.ChildrenTags_RtvType)", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
         public void CountSuccess()

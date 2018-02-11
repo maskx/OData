@@ -7,7 +7,7 @@ using System.Data.Common;
 using System.Data.SqlClient;
 using System.Linq;
 
-namespace maskx.OData.DataSource
+namespace maskx.OData.SQLSource
 {
     public static class FilterBinder
     {
@@ -192,17 +192,7 @@ namespace maskx.OData.DataSource
         }
         static string BindConstantNode(ConstantNode constantNode, List<DbParameter> pars, DbUtility dbUtility)
         {
-            if (constantNode.Value is string)
-                return String.Format("'{0}'", constantNode.Value);
-            else if (constantNode.Value is DateTimeOffset)
-                return String.Format("'{0}'", ((DateTimeOffset)constantNode.Value).ToString("yyyy-MM-dd HH:mm:ss"));
-            else if (constantNode.Value is Guid)
-                return String.Format("'{0}'", constantNode.Value);
-            else if (constantNode.Value is bool)
-                return (bool)constantNode.Value ? "1" : "0";
-            else if (constantNode.Value == null)
-                return "null";
-            return constantNode.Value.ToString();
+            return dbUtility.CreateParameter(constantNode.Value, pars).ParameterName;
         }
         static string BindAllNode(AllNode allNode, List<DbParameter> pars, DbUtility dbUtility)
         {
@@ -220,8 +210,6 @@ namespace maskx.OData.DataSource
             }
             return innerQuery + ")";
         }
-
-
         static string BindSingleValueFunctionCallNode(SingleValueFunctionCallNode node, List<DbParameter> pars, DbUtility dbUtility)
         {
             var arguments = node.Parameters.ToList();
@@ -263,18 +251,18 @@ namespace maskx.OData.DataSource
                     dbpar = dbUtility.CreateParameter(parValue, pars);
                     return string.Format("charindex({0},{1})", dbpar.ParameterName, name);
                 case "substring":
-                    parValue = Bind(arguments[0], pars,dbUtility);
+                    parValue = Bind(arguments[0], pars, dbUtility);
                     dbpar = dbUtility.CreateParameter(parValue, pars);
                     return string.Format("SUBSTRING({0},{1},{2})",
                         dbpar.ParameterName,
                         (arguments[1] as ConstantNode).Value,
                        arguments.Count > 2 ? (arguments[2] as ConstantNode).Value : 0);
                 case "tolower":
-                    parValue = Bind(arguments[0], pars,dbUtility);
+                    parValue = Bind(arguments[0], pars, dbUtility);
                     dbpar = dbUtility.CreateParameter(parValue, pars);
                     return "LOWER(" + dbpar.ParameterName + ")";
                 case "toupper":
-                    parValue = Bind(arguments[0], pars,dbUtility);
+                    parValue = Bind(arguments[0], pars, dbUtility);
                     dbpar = dbUtility.CreateParameter(parValue, pars);
                     return "UPPER(" + parName + ")";
                 case "trim":
@@ -293,8 +281,8 @@ namespace maskx.OData.DataSource
                 case "round":
                 case "floor":
                 case "ceiling":
-                    parValue = Bind(arguments[0], pars,dbUtility);
-                    dbpar = dbUtility.CreateParameter(parValue,pars);
+                    parValue = Bind(arguments[0], pars, dbUtility);
+                    dbpar = dbUtility.CreateParameter(parValue, pars);
                     return node.Name + "(" + parName + ")";
                 default:
                     throw new NotImplementedException();

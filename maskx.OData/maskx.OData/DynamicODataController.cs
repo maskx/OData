@@ -97,25 +97,17 @@ namespace maskx.OData
         /// 
         /// </summary>
         /// <returns></returns>
-        public ActionResult DoAction()
+        public ActionResult DoAction(ODataActionParameters parameters)
         {
-            var options = GetQueryOptions();
+
             var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
             var path = Request.ODataFeature().Path;
             OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
 
             JObject jobj = null;
             string s = Request.GetRawBodyStringAsync().Result;
-            if (!string.IsNullOrEmpty(s))
+            if (!string.IsNullOrEmpty(s) && s != "null")
                 jobj = JObject.Parse(s);
-            if (Request.HasFormContentType)
-            {
-
-            }
-            else
-            {
-
-            }
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Action,
@@ -129,7 +121,7 @@ namespace maskx.OData
                 {
                     a = item.Operation as IEdmAction;
                 }
-                return ds.DoAction(a, ri.Parameters);
+                return ds.DoAction(a, jobj);
             });
 
         }

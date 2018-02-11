@@ -1,4 +1,4 @@
-﻿using maskx.OData.DataSource;
+﻿using maskx.OData.SQLSource;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;

@@ -1,21 +1,14 @@
-﻿using Microsoft.AspNet.OData;
-using Microsoft.AspNet.OData.Query;
-using Microsoft.OData.Edm;
+﻿using Microsoft.AspNet.OData.Query;
 using Microsoft.OData.UriParser;
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
+using System.Text;
 
-
-namespace maskx.OData.Sql
+namespace maskx.OData.SQLSource
 {
-    public static class Extensions
+    public static class SelectBinder
     {
-        public static bool IsDBNull(this DbDataReader reader, string columnName)
-        {
-            return Convert.IsDBNull(reader[columnName]);
-        }
-        internal static string ParseSelect(this ODataQueryOptions options)
+        internal static string ParseSelect(this ODataQueryOptions options, DbUtility utility)
         {
             if (options.Count != null)
                 return "count(0)";
@@ -32,13 +25,13 @@ namespace maskx.OData.Sql
                 {
                     foreach (PropertySegment path in select.SelectedPath)
                     {
-                        s.Add(string.Format("[{0}]", path.Property.Name));
+                        s.Add(utility.SafeDbObject(path.Property.Name));
                     }
                 }
             }
             return string.Join(",", s);
         }
-        internal static string ParseSelect(this ExpandedNavigationSelectItem expanded)
+        internal static string ParseSelect(this ExpandedNavigationSelectItem expanded, DbUtility utility)
         {
             if (expanded.CountOption.HasValue)
                 return "count(0)";
@@ -55,30 +48,11 @@ namespace maskx.OData.Sql
                 {
                     foreach (PropertySegment path in select.SelectedPath)
                     {
-                        s.Add(string.Format("[{0}]", path.Property.Name));
+                        s.Add(utility.SafeDbObject(path.Property.Name));
                     }
                 }
             }
             return string.Join(",", s);
         }
-        
-        internal static void SetEntityPropertyValue(this DbDataReader reader, int fieldIndex, EdmStructuredObject entity)
-        {
-            string name = reader.GetName(fieldIndex);
-            if (reader.IsDBNull(fieldIndex))
-            {
-                entity.TrySetPropertyValue(name, null);
-                return;
-            }
-            if (reader.GetFieldType(fieldIndex) == typeof(DateTime))
-            {
-                entity.TrySetPropertyValue(name, new DateTimeOffset(reader.GetDateTime(fieldIndex)));
-            }
-            else
-            {
-                entity.TrySetPropertyValue(name, reader.GetValue(fieldIndex));
-            }
-        }
-       
     }
 }

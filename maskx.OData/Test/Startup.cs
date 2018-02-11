@@ -21,8 +21,8 @@ namespace Test
         }
         public void Configure(IApplicationBuilder app)
         {
-            var ds = new maskx.OData.MSSQL.SQLServer("ds","Data Source=.;Initial Catalog=Group;Integrated Security=True");
-            var mySql = new maskx.OData.DataSource.MySQL("mysql", "Server=localhost;Database=TimeCollection;Uid=root;Pwd = password;");
+            var ds = new maskx.OData.SQLSource.SQLServer("ds","Data Source=.;Initial Catalog=Group;Integrated Security=True");
+            var mySql = new maskx.OData.SQLSource.MySQL("mysql", "Server=localhost;Database=TimeCollection;Uid=root;Pwd = password;");
             mySql.Configuration.DefaultSchema = "TimeCollection";
             app.UseMvc(routeBuilder => {
                 routeBuilder.MapDynamicODataServiceRoute("odata",

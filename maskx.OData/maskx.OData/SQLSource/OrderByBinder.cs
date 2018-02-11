@@ -4,7 +4,7 @@ using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using System.Linq;
 
-namespace maskx.OData.DataSource
+namespace maskx.OData.SQLSource
 {
     public static class OrderByBinder
     {
@@ -16,7 +16,7 @@ namespace maskx.OData.DataSource
             {
                 return string.Empty;
             }
-            return " order by " + BindOrderByClause(options.OrderBy.OrderByClause, dbUtility);
+            return BindOrderByClause(options.OrderBy.OrderByClause, dbUtility);
         }
         public static string ParseOrderBy(this ExpandedNavigationSelectItem expanded, DbUtility dbUtility)
         {
@@ -24,7 +24,7 @@ namespace maskx.OData.DataSource
                 return string.Empty;
             if (expanded.OrderByOption == null)
                 return string.Empty;
-            return " order by " + BindOrderByClause(expanded.OrderByOption, dbUtility);
+            return BindOrderByClause(expanded.OrderByOption, dbUtility);
         }
         static string BindOrderByClause(OrderByClause orderByClause, DbUtility dbUtility)
         {

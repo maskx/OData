@@ -13,7 +13,7 @@ namespace maskx.OData
         EdmModel Model { get; }
 
         EdmEntityObjectCollection Get(ODataQueryOptions queryOptions);
-        int GetCount(ODataQueryOptions queryOptions);
+        long GetCount(ODataQueryOptions queryOptions);
         EdmEntityObject Get(string key, ODataQueryOptions queryOptions);
         /// <summary>
         /// insert one row to table

@@ -30,7 +30,7 @@ namespace Test
         [Fact]
         public void GetByKeySuccess()
         {
-            var rtv = Common.GetJObject("Tag(1)");
+            var rtv = Common.GetJObject("Tag(2)");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Tag/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
 

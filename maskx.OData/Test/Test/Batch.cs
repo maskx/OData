@@ -5,6 +5,7 @@ using System.Text;
 using Test;
 using Xunit;
 using System.Linq;
+using System.Net.Http.Formatting;
 
 namespace Test
 {
@@ -46,7 +47,7 @@ namespace Test
 
             HttpRequestMessage request = new HttpRequestMessage(httpMethod, url);
             if (content != null)
-                request.Content = new JsonContent(content);
+                request.Content = new ObjectContent(content.GetType(),content, new JsonMediaTypeFormatter());
             HttpMessageContent message = new HttpMessageContent(request);
             if (message.Headers.Contains("Content-Type"))
                 message.Headers.Remove("Content-Type");

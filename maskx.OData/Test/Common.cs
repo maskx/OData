@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net;
-
+using System.Net.Http.Formatting;
 
 namespace Test
 {
@@ -43,7 +43,7 @@ namespace Test
         public static ValueTuple<HttpStatusCode, JObject> Post(string query, object content)
         {
             HttpClient client = new HttpClient();
-            HttpResponseMessage response = client.PostAsync(string.Format(Tpl, query), content == null ? null : new JsonContent(content)).Result;
+            HttpResponseMessage response = client.PostAsJsonAsync(string.Format(Tpl, query), content).Result;
             var str = response.Content.ReadAsStringAsync().Result;
             return new ValueTuple<HttpStatusCode, JObject>(response.StatusCode, JObject.Parse(str));
 
@@ -59,11 +59,8 @@ namespace Test
         public static ValueTuple<HttpStatusCode, string> Put(string query, object content)
         {
             HttpClient client = new HttpClient();
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, string.Format(Tpl, query))
-            {
-                Content = new JsonContent(content)
-            };
-            HttpResponseMessage response = client.SendAsync(request).Result;
+
+            HttpResponseMessage response = client.PutAsJsonAsync(string.Format(Tpl, query), content).Result;
             var str = response.Content.ReadAsStringAsync().Result;
             return new ValueTuple<HttpStatusCode, string>(response.StatusCode, str);
         }
@@ -72,7 +69,7 @@ namespace Test
             HttpClient client = new HttpClient();
             HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("PATCH"), string.Format(Tpl, query))
             {
-                Content = new JsonContent(content)
+                Content = new ObjectContent(content.GetType(), content, new JsonMediaTypeFormatter())
             };
             HttpResponseMessage response = client.SendAsync(request).Result;
             var str = response.Content.ReadAsStringAsync().Result;

@@ -3,17 +3,24 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Text;
 using maskx.Database;
-using maskx.OData.DataSource;
+using maskx.OData.SQLSource;
 using Microsoft.AspNet.OData.Query;
 using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 
-namespace maskx.OData.MSSQL
+namespace maskx.OData.SQLSource
 {
-    public class SQLServer : DataSource.SQLBase
+    public class SQLServer : SQLBase
     {
+        int SQLVersion = 11;
         public SQLServer(string name, string connectionString) : base(name, connectionString)
         {
+            using (var conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                Version.TryParse(conn.ServerVersion, out Version v);
+                SQLVersion = v.Major;
+            }
 
         }
 
@@ -23,94 +30,6 @@ namespace maskx.OData.MSSQL
         protected override DbAccess CreateDbAccess(string connectionString)
         {
             return new DbAccess(System.Data.SqlClient.SqlClientFactory.Instance, connectionString);
-        }
-
-        protected override string GetCmdTemplete(MethodType methodType)
-        {
-            switch (methodType)
-            {
-                case MethodType.Replace:
-                    break;
-                case MethodType.Merge:
-                    break;
-                case MethodType.Delete:
-                    break;
-                case MethodType.Create:
-                    return "insert into {0}.{1} ({2}) values ({3}); select SCOPE_IDENTITY() ";
-                case MethodType.Get:
-                    break;
-                case MethodType.Count:
-                    break;
-                case MethodType.Function:
-                    break;
-                case MethodType.Action:
-                    break;
-                default:
-                    break;
-            }
-            return string.Empty;
-        }
-
-        protected override string GetCmdTemplete(MethodType methodType, ODataQueryOptions options)
-        {
-            switch (methodType)
-            {
-                case MethodType.Replace:
-                    break;
-                case MethodType.Merge:
-                    break;
-                case MethodType.Delete:
-                    break;
-                case MethodType.Create:
-                    return "insert into {0}.{1} ({2}) values ({3}); select SCOPE_IDENTITY() ";
-                case MethodType.Get:
-                    //0:Top,1:Select,2:Schema,3:Table,4:where,5:orderby,6:skip
-                    if (options.Skip != null)
-                        return "select {1} from {2}.{3} {4} {5} OFFSET {6} rows FETCH NEXT {0} rows only";
-                    if (options.Top != null)
-                        return "select top {0} {1} from {2}.{3} {4} {5}";
-                    return "select {0} {1} from {2}.{3} {4} {5}";
-                case MethodType.Count:
-                    break;
-                case MethodType.Function:
-                    break;
-                case MethodType.Action:
-                    break;
-                default:
-                    break;
-            }
-            return string.Empty;
-        }
-
-        protected override string GetCmdTemplete(MethodType methodType, ExpandedNavigationSelectItem expanded)
-        {
-            switch (methodType)
-            {
-                case MethodType.Replace:
-                    break;
-                case MethodType.Merge:
-                    break;
-                case MethodType.Delete:
-                    break;
-                case MethodType.Create:
-                    return "insert into {0}.{1} ({2}) values ({3}); select SCOPE_IDENTITY() ";
-                case MethodType.Get:
-                    //0:Top,1:Select,2:Schema,3:Table,4:where,5:orderby,6:skip
-                    if (expanded.SkipOption.HasValue)
-                        return "select {1} from {2}.{3} {4} {5} OFFSET {6} rows FETCH NEXT {0} rows only";
-                    if (expanded.TopOption.HasValue)
-                        return "select top {0} {1} from {2}.{3} {4} {5}";
-                    return "select {0} {1} from {2}.{3} {4} {5}";
-                case MethodType.Count:
-                    break;
-                case MethodType.Function:
-                    break;
-                case MethodType.Action:
-                    break;
-                default:
-                    break;
-            }
-            return string.Empty;
         }
 
         protected override EdmPrimitiveTypeKind? GetEdmType(string dbType)
@@ -477,6 +396,18 @@ select
                                         !reader.IsDBNull("COLUMN_KEY"));
                 }
                 conn.Close();
+            }
+        }
+        protected override string QueryPagingCommandTemplete
+        {
+            //https://support.microsoft.com/en-us/help/321185/how-to-determine-the-version-edition-and-update-level-of-sql-server-an
+            get
+            {
+                if (SQLVersion >= 11)//2012
+                    return base.QueryPagingCommandTemplete;
+                if (SQLVersion >= 10)//2008
+                    return "";
+                return "";
             }
         }
     }

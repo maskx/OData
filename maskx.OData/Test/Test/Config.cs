@@ -27,10 +27,14 @@ namespace Test
             try
             {
                 _WebHost.Start();
-                var rtv = Common.Get("dbo.Tag", "db1", Common._Port_ChangeDefaultSchema);
+
+                var rtv = Common.Get("$metadata", "db1", Common._Port_ChangeDefaultSchema);
+
+                rtv = Common.Get("dbo.Tag", "db1", Common._Port_ChangeDefaultSchema);
                 Assert.Equal(HttpStatusCode.OK, rtv.Item1);
                 var jobj = JObject.Parse(rtv.Item2);
                 Assert.EndsWith("#dbo.Tag", jobj.Property("@odata.context").Value.ToString());
+
                 rtv = Common.Get("Group", "db1", Common._Port_ChangeDefaultSchema);
                 Assert.Equal(HttpStatusCode.OK, rtv.Item1);
                 jobj = JObject.Parse(rtv.Item2);
@@ -53,7 +57,7 @@ namespace Test
             {
                 app.UseMvc(routeBuilder =>
                 {
-                    var dataSource = new maskx.OData.MSSQL.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
+                    var dataSource = new maskx.OData.SQLSource.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
                     dataSource.Configuration.DefaultSchema = "schemaB";
                     routeBuilder.MapDynamicODataServiceRoute("odata1", "db1", dataSource);
                 });
@@ -74,7 +78,7 @@ namespace Test
             try
             {
                 _WebHost.Start();
-                //  var rtv1 = Common.Get("$metadata", "db1", Common._Port_LowerName);
+                var rtv1 = Common.Get("$metadata", "db1", Common._Port_LowerName);
                 var rtv = Common.Get("tag", "db1", Common._Port_LowerName);
                 Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             }
@@ -95,7 +99,7 @@ namespace Test
             {
                 app.UseMvc(routeBuilder =>
                 {
-                    var dataSource = new maskx.OData.MSSQL.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
+                    var dataSource = new maskx.OData.SQLSource.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
                     dataSource.Configuration.LowerName = true;
                     routeBuilder.MapDynamicODataServiceRoute("odata1", "db1", dataSource);
                 });

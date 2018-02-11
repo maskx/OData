@@ -10,7 +10,7 @@ using System.Data;
 using System.Data.Common;
 using System.Linq;
 
-namespace maskx.OData.DataSource
+namespace maskx.OData.SQLSource
 {
     public abstract class SQLBase : IDataSource
     {
@@ -259,7 +259,7 @@ namespace maskx.OData.DataSource
             List<IEdmStructuralProperty> principalProperties = null;
             List<IEdmStructuralProperty> dependentProperties = null;
 
-            foreach (var (ForeignKeyName, ParentSchemaName, ParentName, ParentColumnName, RefrencedName, RefrencedSchemaName, RefrencedColumnName) in GetRelationship())
+            foreach (var (ForeignKeyName, ParentSchemaName, ParentName, ParentColumnName, ReferencedName, ReferencedSchemaName, ReferencedColumnName) in GetRelationship())
             {
                 if (fk != ForeignKeyName)
                 {
@@ -268,16 +268,17 @@ namespace maskx.OData.DataSource
                         CreatReference(model, parent, refrenced, principalProperties, dependentProperties);
                     }
                     parent = model.FindDeclaredType(string.Format("{0}.{1}", ParentSchemaName, ParentName)) as EdmEntityType;
-                    refrenced = model.FindDeclaredType(string.Format("{0}.{1}", RefrencedSchemaName, RefrencedName)) as EdmEntityType;
+                    refrenced = model.FindDeclaredType(string.Format("{0}.{1}", ReferencedSchemaName, ReferencedName)) as EdmEntityType;
 
                     principalProperties = new List<IEdmStructuralProperty>();
                     dependentProperties = new List<IEdmStructuralProperty>();
                     fk = ForeignKeyName;
                 }
-                principalProperties.Add(parent.FindProperty(ParentColumnName) as IEdmStructuralProperty);
-                dependentProperties.Add(refrenced.FindProperty(RefrencedColumnName) as IEdmStructuralProperty);
+                principalProperties.Add(parent.FindProperty(Configuration.LowerName ? ParentColumnName.ToLower() : ParentColumnName) as IEdmStructuralProperty);
+                dependentProperties.Add(refrenced.FindProperty(Configuration.LowerName ? ReferencedColumnName.ToLower() : ReferencedColumnName) as IEdmStructuralProperty);
             }
-            CreatReference(model, parent, refrenced, principalProperties, dependentProperties);
+            if (parent != null)
+                CreatReference(model, parent, refrenced, principalProperties, dependentProperties);
 
         }
 
@@ -313,7 +314,8 @@ namespace maskx.OData.DataSource
         }
         #endregion
 
-        #region abstract method
+
+        #region method for Build EdmModel
         protected abstract IEnumerable<(string ForeignKeyName,
             string ParentSchemaName,
             string ParentName,
@@ -321,7 +323,6 @@ namespace maskx.OData.DataSource
             string RefrencedName,
             string RefrencedSchemaName,
             string RefrencedColumnName
-
             )> GetRelationship();
 
         /// <summary>
@@ -384,12 +385,21 @@ namespace maskx.OData.DataSource
         public Configuration Configuration { get; set; }
 
         public string Name { get; private set; }
-
+        EdmModel _EdmModel;
+        readonly object _ModelLocker = new object();
         public EdmModel Model
         {
             get
             {
-                return GetEdmModel();
+                if (_EdmModel == null)
+                {
+                    lock (_ModelLocker)
+                    {
+                        if (_EdmModel == null)
+                            _EdmModel = GetEdmModel();
+                    }
+                }
+                return _EdmModel;
             }
         }
 
@@ -553,7 +563,7 @@ namespace maskx.OData.DataSource
                     EdmEntityObject entity = new EdmEntityObject(entityType);
                     for (int i = 0; i < reader.FieldCount; i++)
                     {
-                        reader.SetEntityPropertyValue(i, entity);
+                        reader.SetEntityPropertyValue(i, entity, Configuration.LowerName);
                     }
                     if (needExpand)
                     {
@@ -602,7 +612,7 @@ namespace maskx.OData.DataSource
             return entity;
         }
 
-        public int GetCount(ODataQueryOptions queryOptions)
+        public long GetCount(ODataQueryOptions queryOptions)
         {
             var cxt = queryOptions.Context;
             var entityType = cxt.ElementType as EdmEntityType;
@@ -618,7 +628,9 @@ namespace maskx.OData.DataSource
             }
             if (rtv == null)
                 return 0;
-            return (int)rtv;
+            if (long.TryParse(rtv.ToString(), out long lrtv))
+                return lrtv;
+            return 0;
         }
 
         public int GetFuncResultCount(ODataQueryOptions queryOptions)
@@ -703,11 +715,8 @@ namespace maskx.OData.DataSource
 
         protected abstract DbAccess CreateDbAccess(string connectionString);
         protected abstract DbUtility _DbUtility { get; }
-        protected abstract string GetCmdTemplete(MethodType methodType);
-        protected abstract string GetCmdTemplete(MethodType methodType, ODataQueryOptions options);
-        protected abstract string GetCmdTemplete(MethodType methodType, ExpandedNavigationSelectItem expanded);
 
-
+        #region method for build SQL command string
         protected virtual string BuildExpandQueryCmd(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, List<DbParameter> pars)
         {
             var entityType = expanded.NavigationSource.EntityType();
@@ -721,23 +730,44 @@ namespace maskx.OData.DataSource
                     wp.Add(string.Format("{0}={1}", _DbUtility.SafeDbObject(p.PrincipalProperty.Name), par.ParameterName));
                 }
             }
-            string where = " where " + string.Join("and", wp);
+            string where = " where " + string.Join("and", wp) + expanded.ParseFilter(pars, _DbUtility);
+            string cmdTemplete = string.Empty;
+            //0:Top,1:Select,2:Schema,3:Table,4:where,5:orderby,6:skip
+            if (expanded.CountOption.HasValue)
+                cmdTemplete = QueryCountCommandTemplete;
+            else if (expanded.SkipOption.HasValue)
+                cmdTemplete = QueryPagingCommandTemplete;
+            else if (expanded.TopOption.HasValue)
+                cmdTemplete = QueryTopCommandTemplete;
+            else
+                cmdTemplete = QueryCommandTemplete;
+            string order = expanded.ParseOrderBy(_DbUtility);
+            if (string.IsNullOrEmpty(order))
+            {
+                if (entityType.DeclaredKey.Count() > 0)
+                    order = _DbUtility.SafeDbObject(entityType.DeclaredKey.First().Name);
+                else
+                    order = _DbUtility.SafeDbObject(entityType.DeclaredProperties.First().Name);
 
-            return string.Format(GetCmdTemplete(MethodType.Get, expanded)
+            }
+            return string.Format(cmdTemplete
                 , expanded.TopOption.HasValue ? expanded.TopOption.Value.ToString() : string.Empty
                 , expanded.ParseSelect(_DbUtility)
                 , entityType.Namespace
                 , entityType.Name
                 , where
-                , expanded.ParseFilter(pars, _DbUtility)
-                , expanded.ParseOrderBy(_DbUtility)
+                , order
                 , expanded.SkipOption.HasValue ? expanded.SkipOption.Value.ToString() : string.Empty);
         }
-
+        protected virtual string QueryCountCommandTemplete { get { return "select {0} {1} from {2}.{3} {4}"; } }
+        protected virtual string QueryPagingCommandTemplete { get { return "select {1} from {2}.{3} {4} order by {5} OFFSET {6} rows FETCH NEXT {0} rows only"; } }
+        protected virtual string QueryTopCommandTemplete { get { return "select top {0} {1} from {2}.{3} {4} order by {5}"; } }
+        protected virtual String QueryCommandTemplete { get { return "select {0} {1} from {2}.{3} {4} order by {5}"; } }
         protected virtual string BuildQueryCmd(ODataQueryOptions options, List<DbParameter> pars)
         {
             var cxt = options.Context;
-            string ns, name;
+            string ns, name, order, cmdTemplete;
+            order = options.ParseOrderBy(_DbUtility);
             if (cxt.Path.Segments.First() is OperationImportSegment ois)
             {
                 var func = ois.OperationImports.First().Operation;
@@ -750,23 +780,43 @@ namespace maskx.OData.DataSource
                 }
                 ns = func.Namespace;
                 name = string.Format("{0}({1})", _DbUtility.SafeDbObject(func.Name), string.Join(",", funcPList.ConvertAll<string>(p => p.ParameterName)));
+                if (string.IsNullOrEmpty(order))
+                {
+                    var entityType = cxt.ElementType as EdmComplexType;
+                    order = _DbUtility.SafeDbObject(entityType.DeclaredProperties.First().Name);
+                }
             }
             else
             {
                 var entityType = cxt.ElementType as EdmEntityType;
                 ns = _DbUtility.SafeDbObject(entityType.Namespace);
                 name = _DbUtility.SafeDbObject(entityType.Name);
+                if (string.IsNullOrEmpty(order))
+                {
+                    if (entityType.DeclaredKey.Count() > 0)
+                        order = _DbUtility.SafeDbObject(entityType.DeclaredKey.First().Name);
+                    else
+                        order = _DbUtility.SafeDbObject(entityType.DeclaredProperties.First().Name);
+                }
             }
-
-            return string.Format(GetCmdTemplete(MethodType.Get, options)
+            //0:Top,1:Select,2:Schema,3:Table,4:where,5:orderby,6:skip
+            if (options.Count != null)
+                cmdTemplete = QueryCountCommandTemplete;
+            else if (options.Skip != null)
+                cmdTemplete = QueryPagingCommandTemplete;
+            else if (options.Top != null)
+                cmdTemplete = QueryTopCommandTemplete;
+            else cmdTemplete = QueryCommandTemplete;
+            return string.Format(cmdTemplete
                 , options.Top?.RawValue
                 , options.ParseSelect(_DbUtility)
                 , ns
                 , name
                 , options.ParseFilter(pars, _DbUtility)
-                , options.ParseOrderBy(_DbUtility)
+                , order
                 , options.Skip?.RawValue);
         }
+        protected virtual string CreateCommandTemplete { get { return "insert into {0}.{1} ({2}) values ({3}); select SCOPE_IDENTITY() "; } }
 
         protected virtual string BuildCreateCmd(IEdmEntityObject entity, List<DbParameter> pars)
         {
@@ -783,40 +833,44 @@ namespace maskx.OData.DataSource
                 var par = _DbUtility.CreateParameter(v, pars);
                 ps.Add(par.ParameterName);
             }
-            return string.Format(GetCmdTemplete(MethodType.Create),
+            return string.Format(CreateCommandTemplete,
                _DbUtility.SafeDbObject(entityType.Namespace),
                _DbUtility.SafeDbObject(entityType.Name),
                 string.Join(", ", cols),
                 string.Join(", ", ps));
         }
+        protected virtual string QueryByKeyCommandTemplete { get { return "select {0} from {1} where {2}={3}"; } }
+
         protected virtual string BuildQueryByKeyCmd(string key, ODataQueryOptions options, List<DbParameter> pars)
         {
             var cxt = options.Context;
             var entityType = cxt.ElementType as EdmEntityType;
             var keyDefine = entityType.DeclaredKey.First();
-            string cmdSql = "select {0} from {1} where {2}={3}";
             var par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
 
-            return string.Format(cmdSql
+            return string.Format(QueryByKeyCommandTemplete
                 , options.ParseSelect(_DbUtility)
                 , _DbUtility.SafeDbObject(entityType.Name)
                 , _DbUtility.SafeDbObject(keyDefine.Name),
                 par.ParameterName);
         }
+        protected virtual string DeleteCommandTemplete { get { return "delete from  {0}.{1} where {2}={3};"; } }
+
         protected virtual string BuildDeleteCmd(string key, IEdmType elementType, List<DbParameter> pars)
         {
             var entityType = elementType as EdmEntityType;
             var keyDefine = entityType.DeclaredKey.First();
             var par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
-            return string.Format("delete from  {0}.{1} where {2}={3};",
+            return string.Format(DeleteCommandTemplete,
                _DbUtility.SafeDbObject(entityType.Namespace),
                _DbUtility.SafeDbObject(entityType.Name),
                _DbUtility.SafeDbObject(keyDefine.Name),
                par.ParameterName);
         }
+        protected virtual string ReplaceCommandTemplete { get { return "update {0}.{1} set {2} where {3}={4} "; } }
+
         protected virtual string BuildReplaceCmd(string key, IEdmEntityObject entity, List<DbParameter> pars)
         {
-            string cmdTemplate = "update {0}.{1} set {2} where {3}={4}";
             var entityType = entity.GetEdmType().Definition as EdmEntityType;
             var keyDefine = entityType.DeclaredKey.First();
             List<string> cols = new List<string>();
@@ -835,16 +889,16 @@ namespace maskx.OData.DataSource
             }
             par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
 
-            return string.Format(cmdTemplate,
+            return string.Format(ReplaceCommandTemplete,
                 _DbUtility.SafeDbObject(entityType.Namespace),
                 _DbUtility.SafeDbObject(entityType.Name),
                 string.Join(",", cols),
                _DbUtility.SafeDbObject(keyDefine.Name),
                 par.ParameterName);
         }
+        protected virtual string MergeCommandTemplete { get { return "update {0}.{1} set {2} where {3}={4} "; } }
         protected virtual string BuildMergeCmd(string key, IEdmEntityObject entity, List<DbParameter> pars)
         {
-            string cmdTemplate = "update {0}.{1} set {2} where {3}={4} ";
             var entityType = entity.GetEdmType().Definition as EdmEntityType;
             var keyDefine = entityType.DeclaredKey.First();
             List<string> cols = new List<string>();
@@ -860,17 +914,14 @@ namespace maskx.OData.DataSource
                 }
             }
             par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
-            return string.Format(cmdTemplate,
+            return string.Format(MergeCommandTemplete,
                _DbUtility.SafeDbObject(entityType.Namespace),
                _DbUtility.SafeDbObject(entityType.Name),
                 string.Join(", ", cols),
                _DbUtility.SafeDbObject(keyDefine.Name),
                 par.ParameterName);
         }
-
-
-
-        void Expand(EdmEntityObject edmEntity, SelectExpandClause expandClause)
+        private void Expand(EdmEntityObject edmEntity, SelectExpandClause expandClause)
         {
             foreach (var item1 in expandClause.SelectedItems)
             {
@@ -906,6 +957,10 @@ namespace maskx.OData.DataSource
             }
             edmEntity.TrySetPropertyValue(expanded.NavigationSource.Name, collection);
         }
+
+        #endregion
+
+
 
     }
 }

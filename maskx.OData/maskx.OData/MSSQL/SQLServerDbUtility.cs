@@ -1,10 +1,10 @@
-﻿using maskx.OData.DataSource;
+﻿using maskx.OData.SQLSource;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Text;
 
-namespace maskx.OData.MSSQL
+namespace maskx.OData.SQLSource
 {
     public class SQLServerDbUtility : DbUtility
     {

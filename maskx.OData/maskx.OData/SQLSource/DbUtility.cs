@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Text;
 
-namespace maskx.OData.DataSource
+namespace maskx.OData.SQLSource
 {
     public abstract class DbUtility
     {

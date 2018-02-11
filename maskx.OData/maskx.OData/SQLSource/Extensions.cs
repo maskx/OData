@@ -5,13 +5,14 @@ using System.Data.Common;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace maskx.OData.DataSource
+namespace maskx.OData.SQLSource
 {
     public static class Extensions
     {
-        internal static void SetEntityPropertyValue(this DbDataReader reader, int fieldIndex, EdmStructuredObject entity)
+        internal static void SetEntityPropertyValue(this DbDataReader reader, int fieldIndex, EdmStructuredObject entity, bool lowerName = false)
         {
             string name = reader.GetName(fieldIndex);
+            if (lowerName) name = name.ToLower();
             if (reader.IsDBNull(fieldIndex))
             {
                 entity.TrySetPropertyValue(name, null);
@@ -23,7 +24,7 @@ namespace maskx.OData.DataSource
             {
                 entity.TrySetPropertyValue(name, new DateTimeOffset(reader.GetDateTime(fieldIndex)));
             }
-            else if(et==typeof(bool?) || et == typeof(bool))
+            else if (et == typeof(bool?) || et == typeof(bool))
             {
                 entity.TrySetPropertyValue(name, reader[fieldIndex].ToString() != "0");
             }
