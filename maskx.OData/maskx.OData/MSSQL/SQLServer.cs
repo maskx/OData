@@ -404,10 +404,15 @@ select
             get
             {
                 if (SQLVersion >= 11)//2012
-                    return base.QueryPagingCommandTemplete;
-                if (SQLVersion >= 10)//2008
-                    return "";
-                return "";
+                    return "select {1} from {2}.{3} {4} order by {5} OFFSET {6} rows FETCH NEXT {0} rows only";
+                if (SQLVersion >= 9)//2005
+                    return @"
+select top {0} t.* from(
+select ROW_NUMBER() over ( order by {5}) as rowIndex,{1} from {2}.{3}
+) as t
+where t.rowIndex > {6}";
+                //low version not supported
+                return base.QueryPagingCommandTemplete;
             }
         }
     }

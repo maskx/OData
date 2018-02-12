@@ -128,6 +128,7 @@ from information_schema.ROUTINES AS r
             string DataType,
             bool isKey)> GetTables()
         {
+            //This also get the veiw's schema
             String cmdtxt = @"select  
     TABLE_SCHEMA  AS 'SCHEMA_NAME'
     ,TABLE_NAME
@@ -180,7 +181,8 @@ from information_schema.ROUTINES AS r
             yield break;
         }
 
-        protected override IEnumerable<(string ColumnName, string DataType, int Length, bool isNullable)> GetUserDefinedType(string schema, string name)
+        protected override IEnumerable<(string ColumnName, string DataType, int Length, bool isNullable)> 
+            GetUserDefinedType(string schema, string name)
         {
             yield break;
         }
@@ -188,6 +190,7 @@ from information_schema.ROUTINES AS r
         protected override IEnumerable<(string SchemaName, string ViewName, string ColumnName, string DataType, bool isKey)>
             GetViews()
         {
+            //already deal with in GetTables method
             yield break;
         }
 
