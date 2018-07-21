@@ -1,12 +1,5 @@
 # maskx.OData
 
-## Note
-
->This dependence on Microsoft.AspNetCore.OData, more infomation about Microsoft.AspNetCore.OData please folw those links:
-
-* <https://github.com/OData/WebApi/tree/feature/netcore>
-* <https://github.com/OData/WebApi/issues/939>
-
 ## Introduction
 
 maskx.OData support build a Odata database proxy turn your database into a OData WebApi server.
