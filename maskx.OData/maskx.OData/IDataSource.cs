@@ -1,19 +1,25 @@
-﻿using Microsoft.OData.Edm;
+﻿using Microsoft.AspNet.OData;
+using Microsoft.AspNet.OData.Query;
+using Microsoft.OData.Edm;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Web.OData;
-using System.Web.OData.Query;
 
 namespace maskx.OData
 {
     public interface IDataSource
     {
+        Configuration Configuration { get; set; }
         string Name { get; }
         EdmModel Model { get; }
 
         EdmEntityObjectCollection Get(ODataQueryOptions queryOptions);
-        int GetCount(ODataQueryOptions queryOptions);
+        long GetCount(ODataQueryOptions queryOptions);
         EdmEntityObject Get(string key, ODataQueryOptions queryOptions);
+        /// <summary>
+        /// insert one row to table
+        /// </summary>
+        /// <param name="entity">the data of the row</param>
+        /// <returns>the identity of the new recorder</returns>
         string Create(IEdmEntityObject entity);
         int Delete(string key, IEdmType elementType);
         int Merge(string key, IEdmEntityObject entity);
@@ -25,7 +31,7 @@ namespace maskx.OData
         /// <param name="parameterValues"></param>
         /// <param name="queryOptions"></param>
         /// <returns></returns>
-        IEdmObject InvokeFunction(IEdmFunction action, JObject parameterValues, ODataQueryOptions queryOptions = null);
+        IEdmObject InvokeFunction(ODataQueryOptions queryOptions);
         /// <summary>
         /// 
         /// </summary>
@@ -33,7 +39,7 @@ namespace maskx.OData
         /// <param name="parameterValues"></param>
         /// <param name="queryOptions"></param>
         /// <returns></returns>
-        int GetFuncResultCount(IEdmFunction func, JObject parameterValues, ODataQueryOptions queryOptions);
+        int GetFuncResultCount(ODataQueryOptions queryOptions);
         /// <summary>
         /// 
         /// </summary>
@@ -43,6 +49,6 @@ namespace maskx.OData
         IEdmObject DoAction(IEdmAction action, JObject parameterValues);
 
         Action<RequestInfo> BeforeExcute { get; set; }
-        Action<RequestInfo> AfrerExcute { get; set; }
+        Func<RequestInfo, object, object> AfrerExcute { get; set; }
     }
 }

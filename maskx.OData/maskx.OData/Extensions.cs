@@ -1,242 +1,191 @@
-﻿using Microsoft.OData;
+﻿using Microsoft.AspNet.OData.Extensions;
+using Microsoft.AspNet.OData.Routing;
+using Microsoft.AspNet.OData.Routing.Conventions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.OData;
 using Microsoft.OData.Edm;
+using Microsoft.Spatial;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Web.Http;
-using System.Web.Http.Routing;
-using System.Web.OData.Batch;
-using System.Web.OData.Extensions;
-using System.Web.OData.Routing;
-using System.Web.OData.Routing.Conventions;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace maskx.OData
 {
     public static class Extensions
     {
-        public static ODataRoute MapDynamicODataServiceRoute(
-            this HttpConfiguration configuration,
-            string routeName,
-            string routePrefix,
-            IODataPathHandler pathHandler,
-            IEnumerable<IODataRoutingConvention> routingConventions,
-            ODataBatchHandler batchHandler)
-        {
-            return configuration.MapODataServiceRoute(routeName, routePrefix, (builder) =>
-            {
+        private static readonly Dictionary<Type, IEdmPrimitiveType> _builtInTypesMapping =
+           new[]
+           {
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(string), GetPrimitiveType(EdmPrimitiveTypeKind.String)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(bool), GetPrimitiveType(EdmPrimitiveTypeKind.Boolean)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(bool?), GetPrimitiveType(EdmPrimitiveTypeKind.Boolean)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(byte), GetPrimitiveType(EdmPrimitiveTypeKind.Byte)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(byte?), GetPrimitiveType(EdmPrimitiveTypeKind.Byte)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(decimal), GetPrimitiveType(EdmPrimitiveTypeKind.Decimal)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(decimal?), GetPrimitiveType(EdmPrimitiveTypeKind.Decimal)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(double), GetPrimitiveType(EdmPrimitiveTypeKind.Double)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(double?), GetPrimitiveType(EdmPrimitiveTypeKind.Double)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(Guid), GetPrimitiveType(EdmPrimitiveTypeKind.Guid)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(Guid?), GetPrimitiveType(EdmPrimitiveTypeKind.Guid)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(short), GetPrimitiveType(EdmPrimitiveTypeKind.Int16)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(short?), GetPrimitiveType(EdmPrimitiveTypeKind.Int16)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(int), GetPrimitiveType(EdmPrimitiveTypeKind.Int32)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(int?), GetPrimitiveType(EdmPrimitiveTypeKind.Int32)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(long), GetPrimitiveType(EdmPrimitiveTypeKind.Int64)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(long?), GetPrimitiveType(EdmPrimitiveTypeKind.Int64)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(sbyte), GetPrimitiveType(EdmPrimitiveTypeKind.SByte)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(sbyte?), GetPrimitiveType(EdmPrimitiveTypeKind.SByte)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(float), GetPrimitiveType(EdmPrimitiveTypeKind.Single)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(float?), GetPrimitiveType(EdmPrimitiveTypeKind.Single)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(byte[]), GetPrimitiveType(EdmPrimitiveTypeKind.Binary)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(Stream), GetPrimitiveType(EdmPrimitiveTypeKind.Stream)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(Geography), GetPrimitiveType(EdmPrimitiveTypeKind.Geography)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeographyPoint), GetPrimitiveType(EdmPrimitiveTypeKind.GeographyPoint)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeographyLineString), GetPrimitiveType(EdmPrimitiveTypeKind.GeographyLineString)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeographyPolygon), GetPrimitiveType(EdmPrimitiveTypeKind.GeographyPolygon)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeographyCollection), GetPrimitiveType(EdmPrimitiveTypeKind.GeographyCollection)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeographyMultiLineString), GetPrimitiveType(EdmPrimitiveTypeKind.GeographyMultiLineString)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeographyMultiPoint), GetPrimitiveType(EdmPrimitiveTypeKind.GeographyMultiPoint)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeographyMultiPolygon), GetPrimitiveType(EdmPrimitiveTypeKind.GeographyMultiPolygon)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(Geometry), GetPrimitiveType(EdmPrimitiveTypeKind.Geometry)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeometryPoint), GetPrimitiveType(EdmPrimitiveTypeKind.GeometryPoint)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeometryLineString), GetPrimitiveType(EdmPrimitiveTypeKind.GeometryLineString)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeometryPolygon), GetPrimitiveType(EdmPrimitiveTypeKind.GeometryPolygon)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeometryCollection), GetPrimitiveType(EdmPrimitiveTypeKind.GeometryCollection)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeometryMultiLineString), GetPrimitiveType(EdmPrimitiveTypeKind.GeometryMultiLineString)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeometryMultiPoint), GetPrimitiveType(EdmPrimitiveTypeKind.GeometryMultiPoint)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(GeometryMultiPolygon), GetPrimitiveType(EdmPrimitiveTypeKind.GeometryMultiPolygon)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(DateTimeOffset), GetPrimitiveType(EdmPrimitiveTypeKind.DateTimeOffset)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(DateTimeOffset?), GetPrimitiveType(EdmPrimitiveTypeKind.DateTimeOffset)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(TimeSpan), GetPrimitiveType(EdmPrimitiveTypeKind.Duration)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(TimeSpan?), GetPrimitiveType(EdmPrimitiveTypeKind.Duration)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(Date), GetPrimitiveType(EdmPrimitiveTypeKind.Date)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(Date?), GetPrimitiveType(EdmPrimitiveTypeKind.Date)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(TimeOfDay), GetPrimitiveType(EdmPrimitiveTypeKind.TimeOfDay)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(TimeOfDay?), GetPrimitiveType(EdmPrimitiveTypeKind.TimeOfDay)),
 
-                builder.AddService(ServiceLifetime.Singleton, (sp) => pathHandler);
-                builder.AddService(ServiceLifetime.Singleton, (sp) => routingConventions);
-                builder.AddService(ServiceLifetime.Singleton, (sp) => batchHandler);
-                builder.AddService(ServiceLifetime.Singleton, (sp) =>
-                {
-                    IEdmModel model = DataSourceProvider.GetEdmModel(routeName);
-                    return model;
-                });
-                builder.AddService<IHttpRouteConstraint>(ServiceLifetime.Singleton, (sp) =>
-                {
-                    return new DynamicODataPathRouteConstraint(null,null,string.Empty,null);
-                });
+                // Keep the Binary and XElement in the end, since there are not the default mappings for Edm.Binary and Edm.String.
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(XElement), GetPrimitiveType(EdmPrimitiveTypeKind.String)),
+#if NETFX
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(Binary), GetPrimitiveType(EdmPrimitiveTypeKind.Binary)),
+#endif
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(ushort), GetPrimitiveType(EdmPrimitiveTypeKind.Int32)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(ushort?), GetPrimitiveType(EdmPrimitiveTypeKind.Int32)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(uint), GetPrimitiveType(EdmPrimitiveTypeKind.Int64)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(uint?), GetPrimitiveType(EdmPrimitiveTypeKind.Int64)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(ulong), GetPrimitiveType(EdmPrimitiveTypeKind.Int64)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(ulong?), GetPrimitiveType(EdmPrimitiveTypeKind.Int64)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(char[]), GetPrimitiveType(EdmPrimitiveTypeKind.String)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(char), GetPrimitiveType(EdmPrimitiveTypeKind.String)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(char?), GetPrimitiveType(EdmPrimitiveTypeKind.String)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(DateTime), GetPrimitiveType(EdmPrimitiveTypeKind.DateTimeOffset)),
+                new KeyValuePair<Type, IEdmPrimitiveType>(typeof(DateTime?), GetPrimitiveType(EdmPrimitiveTypeKind.DateTimeOffset)),
+           }
+           .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        private static IEdmPrimitiveType GetPrimitiveType(EdmPrimitiveTypeKind primitiveKind)
+        {
+            return EdmCoreModel.Instance.GetPrimitiveType(primitiveKind);
+        }
+        private static ODataRoute MapDynamicODataServiceRoute(this IRouteBuilder builder, string routeName,
+            string routePrefix, IODataPathHandler pathHandler,
+            IEnumerable<IODataRoutingConvention> routingConventions,
+            IDataSource dataSource) 
+        {
+            ServiceProviderServiceExtensions.GetRequiredService<ApplicationPartManager>(builder.ServiceProvider).ApplicationParts.Add(new AssemblyPart(typeof(DynamicODataController).Assembly));
+            var odataRoute = builder.MapODataServiceRoute(routeName, routePrefix, containerBuilder =>
+            {
+                containerBuilder
+                    .AddService<IEdmModel>(Microsoft.OData.ServiceLifetime.Singleton, sp => dataSource.Model)
+                    .AddService<IDataSource>(Microsoft.OData.ServiceLifetime.Scoped, sp => dataSource)
+                    .AddService(Microsoft.OData.ServiceLifetime.Scoped, sp => routingConventions.ToList().AsEnumerable());
+                if (pathHandler != null)
+                    containerBuilder.AddService(Microsoft.OData.ServiceLifetime.Singleton, sp => pathHandler);
             });
-        }
-        public static ODataRoute MapDynamicODataServiceRoute(
-            this HttpConfiguration configuration,
-            string routeName,
-            string routePrefix)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-            return configuration.MapDynamicODataServiceRoute(
-                routeName,
-                routePrefix,
-                new DefaultODataPathHandler(),
-                routingConventions,
-                new DynamicODataBatchHandler(new ODataHttpServer(configuration)));
-        }
-        #region MapDynamicODataServiceRoute
-        public static ODataRoute MapDynamicODataServiceRoute(
-        this HttpRouteCollection routes,
-        string routeName,
-        string routePrefix)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-
-            return MapDynamicODataServiceRoute(
-                routes,
-                routeName,
-                routePrefix,
-                GetModelFuncFromRequest(),
-                new DefaultODataPathHandler(),
-                routingConventions,
-                batchHandler: null);
-        }
-        public static ODataRoute MapDynamicODataServiceRoute(
-           this HttpRouteCollection routes,
-           string routeName,
-           string routePrefix,
-           HttpServer httpServer)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-            return MapDynamicODataServiceRoute(
-                routes,
-                routeName,
-                routePrefix,
-                GetModelFuncFromRequest(),
-                new DefaultODataPathHandler(),
-                routingConventions,
-                batchHandler: new DynamicODataBatchHandler(httpServer));
-        }
-        public static ODataRoute MapDynamicODataServiceRoute(
-          this HttpRouteCollection routes,
-          string routeName,
-          string routePrefix,
-         HttpConfiguration config)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-            return MapDynamicODataServiceRoute(
-                routes,
-                routeName,
-                routePrefix,
-                GetModelFuncFromRequest(),
-                new DefaultODataPathHandler(),
-                routingConventions,
-                batchHandler: new DynamicODataBatchHandler(new ODataHttpServer(config)));
-        }
-        private static ODataRoute MapDynamicODataServiceRoute(
-            HttpRouteCollection routes,
-            string routeName,
-            string routePrefix,
-            Func<HttpRequestMessage, IEdmModel> modelProvider,
-            IODataPathHandler pathHandler,
-            IEnumerable<IODataRoutingConvention> routingConventions,
-            ODataBatchHandler batchHandler)
-        {
-            if (!string.IsNullOrEmpty(routePrefix))
-            {
-                int prefixLastIndex = routePrefix.Length - 1;
-                if (routePrefix[prefixLastIndex] == '/')
-                {
-                    routePrefix = routePrefix.Substring(0, routePrefix.Length - 1);
-                }
-            }
-            if (batchHandler != null)
-            {
-                batchHandler.ODataRouteName = routeName;
-                string batchTemplate = string.IsNullOrEmpty(routePrefix)
-                    ? ODataRouteConstants.Batch
-                    : routePrefix + '/' + ODataRouteConstants.Batch;
-                routes.MapHttpBatchRoute(routeName + "Batch", batchTemplate, batchHandler);
-            }
-            DynamicODataPathRouteConstraint routeConstraint = new DynamicODataPathRouteConstraint(
-                  pathHandler,
-                  modelProvider,
-                  routeName,
-                  routingConventions);
-            DynamicODataRoute odataRoute = new DynamicODataRoute(routePrefix, routeConstraint);
-            routes.Add(routeName, odataRoute);
-
             return odataRoute;
         }
-        #endregion
-        internal static Func<HttpRequestMessage, IEdmModel> GetModelFuncFromRequest()
+        public static ODataRoute MapDynamicODataServiceRoute(this IRouteBuilder builder, string routeName, string routePrefix, IDataSource dataSource)
         {
-            return request =>
-            {
-                string odataPath = request.Properties[Constants.CustomODataPath] as string ?? string.Empty;
-                string[] segments = odataPath.Split('/');
-                string dataSource = segments[0];
-                request.Properties[Constants.ODataDataSource] = dataSource;
-                IEdmModel model = DataSourceProvider.GetEdmModel(dataSource);
-                request.Properties[Constants.CustomODataPath] = string.Join("/", segments, 1, segments.Length - 1);
-                return model;
-            };
+            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
+            routingConventions.Insert(0, new DynamicODataRoutingConvention());
+            return builder.MapDynamicODataServiceRoute(routeName, routePrefix, null, routingConventions, dataSource);
         }
-        internal static IEdmType GetEdmType(this ODataPath path)
-        {
-            return path.Segments[0].EdmType;
 
-        }
-        internal static IEdmType GetEdmType(this HttpRequestMessage requset)
-        {
-            var path = requset.ODataProperties().Path;
-            return path.GetEdmType();
-        }
         internal static object ChangeType(this object v, Type t)
         {
             if (v == null || Convert.IsDBNull(v))
                 return null;
-            else
+            if (t == typeof(Guid))
             {
-                try
-                {
-                    return Convert.ChangeType(v, t);
-                }
-                catch
-                {
-                    if (t == typeof(Guid))
-                    {
-                        if (Guid.TryParse(v.ToString(), out Guid g))
-                            return g;
-                    }
-                }
+                if (Guid.TryParse(v.ToString(), out Guid g))
+                    return g;
             }
-            return null;
+            return Convert.ChangeType(v, t);
+
+        }
+        internal static object ChangeType(this object v, EdmPrimitiveTypeKind t)
+        {
+            return v.ChangeType(t.ToClrType());
         }
         internal static Type ToClrType(this EdmPrimitiveTypeKind t)
         {
+            EdmCoreModel.Instance.GetPrimitiveType(t);
             switch (t)
             {
                 case EdmPrimitiveTypeKind.Binary:
-                    break;
+                    return typeof(byte[]);
                 case EdmPrimitiveTypeKind.Boolean:
                     return typeof(bool);
                 case EdmPrimitiveTypeKind.Byte:
                     return typeof(Byte);
                 case EdmPrimitiveTypeKind.Date:
-                    break;
-                case EdmPrimitiveTypeKind.DateTimeOffset:
                     return typeof(DateTime);
+                case EdmPrimitiveTypeKind.DateTimeOffset:
+                    return typeof(DateTimeOffset);
                 case EdmPrimitiveTypeKind.Decimal:
                     return typeof(decimal);
                 case EdmPrimitiveTypeKind.Double:
                     return typeof(double);
                 case EdmPrimitiveTypeKind.Duration:
-                    break;
+                    return typeof(TimeSpan);
                 case EdmPrimitiveTypeKind.Geography:
-                    break;
+                    return typeof(Geography);
                 case EdmPrimitiveTypeKind.GeographyCollection:
-                    break;
+                    return typeof(GeographyCollection);
                 case EdmPrimitiveTypeKind.GeographyLineString:
-                    break;
+                    return typeof(GeographyLineString);
                 case EdmPrimitiveTypeKind.GeographyMultiLineString:
-                    break;
+                    return typeof(GeographyMultiLineString);
                 case EdmPrimitiveTypeKind.GeographyMultiPoint:
-                    break;
+                    return typeof(GeographyMultiPoint);
                 case EdmPrimitiveTypeKind.GeographyMultiPolygon:
-                    break;
+                    return typeof(GeographyMultiPolygon);
                 case EdmPrimitiveTypeKind.GeographyPoint:
-                    break;
+                    return typeof(GeographyPoint);
                 case EdmPrimitiveTypeKind.GeographyPolygon:
-                    break;
+                    return typeof(GeographyPolygon);
                 case EdmPrimitiveTypeKind.Geometry:
-                    break;
+                    return typeof(Geometry);
                 case EdmPrimitiveTypeKind.GeometryCollection:
-                    break;
+                    return typeof(GeometryCollection);
                 case EdmPrimitiveTypeKind.GeometryLineString:
-                    break;
+                    return typeof(GeometryLineString);
                 case EdmPrimitiveTypeKind.GeometryMultiLineString:
-                    break;
+                    return typeof(GeometryMultiLineString);
                 case EdmPrimitiveTypeKind.GeometryMultiPoint:
-                    break;
+                    return typeof(GeometryMultiPoint);
                 case EdmPrimitiveTypeKind.GeometryMultiPolygon:
-                    break;
+                    return typeof(GeometryMultiPolygon);
                 case EdmPrimitiveTypeKind.GeometryPoint:
-                    break;
+                    return typeof(GeometryMultiPoint);
                 case EdmPrimitiveTypeKind.GeometryPolygon:
-                    break;
+                    return typeof(GeometryPolygon);
                 case EdmPrimitiveTypeKind.Guid:
                     return typeof(Guid);
                 case EdmPrimitiveTypeKind.Int16:
@@ -248,24 +197,47 @@ namespace maskx.OData
                 case EdmPrimitiveTypeKind.None:
                     break;
                 case EdmPrimitiveTypeKind.SByte:
-                    break;
+                    return typeof(SByte);
                 case EdmPrimitiveTypeKind.Single:
-                    break;
+                    return typeof(float);
                 case EdmPrimitiveTypeKind.Stream:
-                    break;
+                    return typeof(Stream);
                 case EdmPrimitiveTypeKind.String:
                     return typeof(string);
                 case EdmPrimitiveTypeKind.TimeOfDay:
-                    break;
+                    return typeof(TimeOfDay);
                 default:
                     break;
             }
             return typeof(object);
         }
-
-        internal static object ChangeType(this object v, EdmPrimitiveTypeKind t)
+        /// <summary>
+        /// Retrieve the raw body as a string from the Request.Body stream
+        /// </summary>
+        /// <param name="request">Request instance to apply to</param>
+        /// <param name="encoding">Optional - Encoding, defaults to UTF8</param>
+        /// <returns></returns>
+        public static async Task<string> GetRawBodyStringAsync(this HttpRequest request, Encoding encoding = null)
         {
-            return v.ChangeType(t.ToClrType());
+            if (encoding == null)
+                encoding = Encoding.UTF8;
+
+            using (StreamReader reader = new StreamReader(request.Body, encoding))
+                return await reader.ReadToEndAsync();
+        }
+
+        /// <summary>
+        /// Retrieves the raw body as a byte array from the Request.Body stream
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        public static async Task<byte[]> GetRawBodyBytesAsync(this HttpRequest request)
+        {
+            using (var ms = new MemoryStream(2048))
+            {
+                await request.Body.CopyToAsync(ms);
+                return ms.ToArray();
+            }
         }
     }
 }

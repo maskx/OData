@@ -1,59 +1,80 @@
-﻿using Microsoft.OData.Edm;
+﻿using Microsoft.AspNet.OData;
+using Microsoft.AspNet.OData.Extensions;
+using Microsoft.AspNet.OData.Formatter.Deserialization;
+using Microsoft.AspNet.OData.Query;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.OData;
+using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Web.OData;
-using System.Web.OData.Extensions;
-using System.Web.OData.Query;
-using System.Web.OData.Routing;
+
+
+
 
 namespace maskx.OData
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public class DynamicODataController : ODataController
     {
-        public HttpResponseMessage Get()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public ActionResult Get()
         {
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            var options = BuildQueryOptions();
-            EdmEntityObjectCollection rtv = null;
-            if (ds.BeforeExcute != null)
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var options = GetQueryOptions();
+            var ri = new RequestInfo(ds.Name)
             {
-                var ri = new RequestInfo(dsName)
-                {
-                    Method = MethodType.Get,
-                    QueryOptions = options,
-                    Target = options.Context.Path.Segments[0].ToString()
-                };
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
+                Method = MethodType.Get,
+                QueryOptions = options,
+                Target = options.Context.Path.Segments[0].ToString()
+            };
+            return Excute(ri, () =>
             {
-                rtv = ds.Get(options);
                 if (options.SelectExpand != null)
-                    Request.ODataProperties().SelectExpandClause = options.SelectExpand.SelectExpandClause;
-                return Request.CreateResponse(HttpStatusCode.OK, rtv);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
-
+                    Request.ODataFeature().SelectExpandClause = options.SelectExpand.SelectExpandClause;
+                return ds.Get(options);
+            });
         }
-        public HttpResponseMessage GetSimpleFunction()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public ActionResult GetByKey()
         {
-            var path = Request.ODataProperties().Path;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var options = GetQueryOptions();
+            var ri = new RequestInfo(ds.Name)
+            {
+                Method = MethodType.Get,
+                QueryOptions = options,
+                Target = options.Context.Path.Segments[0].ToString()
+            };
+            return Excute(ri, () =>
+            {
+                if (options.SelectExpand != null)
+                    Request.ODataFeature().SelectExpandClause = options.SelectExpand.SelectExpandClause;
+                string key = GetKey();
 
-            OperationImportSegment seg = path.Segments.FirstOrDefault() as OperationImportSegment;
+                return ds.Get(key, options);
+            });
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public ActionResult GetSimpleFunction()
+        {
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var path = Request.ODataFeature().Path;
+
+            OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
             IEdmType edmType = seg.EdmType;
 
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
@@ -62,366 +83,281 @@ namespace maskx.OData
             ODataQueryContext queryContext = new ODataQueryContext(Request.GetModel(), elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
 
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
+
+            var ri = new RequestInfo(ds.Name)
+            {
+                Method = MethodType.Function,
+                Target = seg.Identifier,
+                QueryOptions = queryOptions
+            };
+            return Excute(ri, () =>
+            {
+                return ds.InvokeFunction(ri.QueryOptions);
+
+            });
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public ActionResult DoAction(ODataActionParameters parameters)
+        {
+
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var path = Request.ODataFeature().Path;
+            OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
+
+            JObject jobj = null;
+            string s = Request.GetRawBodyStringAsync().Result;
+            if (!string.IsNullOrEmpty(s) && s != "null")
+                jobj = JObject.Parse(s);
+            var ri = new RequestInfo(ds.Name)
+            {
+                Method = MethodType.Action,
+                Target = seg.Identifier,
+                QueryOptions = null
+            };
+            return Excute(ri, () =>
+            {
+                IEdmAction a = null;
+                foreach (var item in seg.OperationImports)
+                {
+                    a = item.Operation as IEdmAction;
+                }
+                return ds.DoAction(a, jobj);
+            });
+
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public ActionResult GetCount()
+        {
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var options = GetQueryOptions();
+            var ri = new RequestInfo(ds.Name)
+            {
+                Method = MethodType.Count,
+                QueryOptions = options,
+                Target = options.Context.Path.Segments[0].ToString(),
+            };
+            return Excute(ri, () =>
+            {
+                return ds.GetCount(options);
+            });
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public ActionResult GetFuncResultCount()
+        {
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var options = GetQueryOptions();
+            var path = Request.ODataFeature().Path;
+            OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
             JObject pars = new JObject();
             foreach (var p in seg.Parameters)
             {
                 try
                 {
-                    var n = seg.GetParameterValue(p.Name);
+                    var n = (p.Value as ConstantNode).Value;
                     pars.Add(p.Name, new JValue(n));
                 }
-                catch { }
-            }
-            var ri = new RequestInfo(dsName)
-            {
-                Method = MethodType.Function,
-                Parameters = pars,
-                Target = seg.Identifier,
-                QueryOptions = queryOptions
-            };
-            if (ds.BeforeExcute != null)
-            {
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
-            {
-                var b = ds.InvokeFunction(null, ri.Parameters, ri.QueryOptions);
-                if (b is EdmComplexObjectCollection)
-                    return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObjectCollection);
-                else
-                    return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
-
-        }
-        public HttpResponseMessage DoAction()
-        {
-            var path = Request.ODataProperties().Path;
-            OperationImportSegment seg = path.Segments.FirstOrDefault() as OperationImportSegment;
-            IEdmType elementType = seg.EdmType;
-            JObject jobj = null;
-            if (Request.Content.IsFormData())
-            {
-                jobj = Request.Content.ReadAsAsync<JObject>().Result;
-            }
-            else
-            {
-                string s = Request.Content.ReadAsStringAsync().Result;
-                if (!string.IsNullOrEmpty(s))
-                    jobj = JObject.Parse(s);
-            }
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            var ri = new RequestInfo(dsName)
-            {
-                Method = MethodType.Action,
-                Parameters = jobj,
-                Target = seg.Identifier,
-                QueryOptions = null
-            };
-            if (ds.BeforeExcute != null)
-            {
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
-            {
-                var b = ds.DoAction(null, ri.Parameters);
-                return Request.CreateResponse(HttpStatusCode.OK, b as EdmComplexObject);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
-        }
-        public HttpResponseMessage GetCount()
-        {
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            var options = BuildQueryOptions();
-            if (ds.BeforeExcute != null)
-            {
-                var ri = new RequestInfo(dsName)
+                catch (Exception ex)
                 {
-                    Method = MethodType.Count,
-                    QueryOptions = options,
-                    Target = options.Context.Path.Segments[0].ToString(),
-                };
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
-            {
-                int count = ds.GetCount(options);
-                return Request.CreateResponse(HttpStatusCode.OK, count);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
-
-        }
-        public HttpResponseMessage GetFuncResultCount()
-        {
-            var path = Request.ODataProperties().Path;
-            OperationImportSegment seg = path.Segments.FirstOrDefault() as OperationImportSegment;
-            IEdmType edmType = seg.EdmType;
-            IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
-                ? (edmType as IEdmCollectionType).ElementType.Definition
-                : edmType;
-            ODataQueryContext queryContext = new ODataQueryContext(Request.GetModel(), elementType, path);
-            ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
-            JObject pars;
-            if (Request.Method == HttpMethod.Get)
-            {
-                pars = new JObject();
-                foreach (var p in seg.Parameters)
-                {
-                    try
-                    {
-                        var n = seg.GetParameterValue(p.Name);
-                        pars.Add(p.Name, new JValue(n));
-                    }
-                    catch { }
+                    return StatusCode((int)HttpStatusCode.InternalServerError, ex);
                 }
             }
-            else
-            {
-                pars = Request.Content.ReadAsAsync<JObject>().Result;
-            }
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            var ri = new RequestInfo(dsName)
+
+            var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Count,
                 Parameters = pars,
                 Target = seg.Identifier,
-                QueryOptions = queryOptions
+                QueryOptions = options
             };
-            if (ds.BeforeExcute != null)
+            return Excute(ri, () =>
             {
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message); ;
-            }
-            try
-            {
-                var count = ds.GetFuncResultCount(null, ri.Parameters, ri.QueryOptions);
-                return Request.CreateResponse(HttpStatusCode.OK, count);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
-
+                return ds.GetFuncResultCount(ri.QueryOptions);
+            });
         }
-        //Get entityset(key)
-        public HttpResponseMessage Get(string key)
-        {
-            var options = BuildQueryOptions();
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            if (ds.BeforeExcute != null)
-            {
-                var ri = new RequestInfo(dsName)
-                {
-                    Method = MethodType.Get,
-                    QueryOptions = options,
-                    Target = options.Context.Path.Segments[0].ToString()
-                };
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
-            {
-                var b = ds.Get(key, options);
-                return Request.CreateResponse(HttpStatusCode.OK, b);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
 
-        }
-        public HttpResponseMessage Post(IEdmEntityObject entity)
+        public ActionResult Post()
         {
+            var entity = GetEdmEntityObject();
             if (entity == null)
-                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "entity cannot be empty");
-            var path = Request.ODataProperties().Path;
-            IEdmType edmType = path.EdmType;
-            if (edmType.TypeKind != EdmTypeKind.Collection)
+                return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty");
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ri = new RequestInfo(ds.Name)
             {
-                throw new Exception("we are serving POST {entityset}");
-            }
-            string rtv = null;
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            if (ds.BeforeExcute != null)
+                Method = MethodType.Create,
+                Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
+                Entity = entity
+            };
+            return Excute(ri, () =>
             {
-                var ri = new RequestInfo(dsName)
-                {
-                    Method = MethodType.Create,
-                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
-                    Entity = entity
-                };
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
+                return ds.Create(entity);
+            }, (rtv) =>
             {
-                rtv = ds.Create(entity);
-                return Request.CreateResponse(HttpStatusCode.Created, rtv);
-            }
-            catch (UnauthorizedAccessException ex)
+                return StatusCode((int)HttpStatusCode.Created, rtv);
+            });
+        }
+        public ActionResult Delete()
+        {
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var options = GetQueryOptions();
+
+            var ri = new RequestInfo(ds.Name)
             {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
+                Method = MethodType.Delete,
+                Target = (options.Context.ElementType as EdmEntityType).Name
+            };
+            return Excute(ri, () =>
             {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
+                string key = GetKey();
+                return ds.Delete(key, options.Context.Path.EdmType);
+            }, (rtv) =>
+            {
+                if ((int)rtv == 1)
+                    return StatusCode((int)HttpStatusCode.NoContent);
+                return StatusCode((int)HttpStatusCode.RequestedRangeNotSatisfiable, rtv);
+            });
 
         }
-        public HttpResponseMessage Delete(string key)
+        public ActionResult Patch()
         {
-            var path = Request.ODataProperties().Path;
-            var edmType = path.Segments[0].EdmType;
-            var edmEntityType = ((EdmCollectionType)edmType).ElementType.Definition;
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            if (ds.BeforeExcute != null)
-            {
-                var ri = new RequestInfo(dsName)
-                {
-                    Method = MethodType.Delete,
-                    Target = (edmEntityType as EdmEntityType).Name
-                };
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
-            {
-                var count = ds.Delete(key, edmEntityType);
-                return Request.CreateResponse(HttpStatusCode.OK, count);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
-
-        }
-        public HttpResponseMessage Patch(string key, IEdmEntityObject entity)
-        {
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
+            var entity = GetEdmEntityObject();
             if (entity == null)
-                return Request.CreateResponse(HttpStatusCode.BadRequest, "entity cannot be empty.");
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            if (ds.BeforeExcute != null)
+                return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty.");
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ri = new RequestInfo(ds.Name)
             {
-                var ri = new RequestInfo(dsName)
-                {
-                    Method = MethodType.Merge,
-                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
-                    Entity = entity
-                };
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
+                Method = MethodType.Merge,
+                Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
+                Entity = entity
+            };
+            return Excute(ri, () =>
             {
-                var count = ds.Merge(key, entity);
-                return Request.CreateResponse(HttpStatusCode.OK, count);
-            }
-            catch (UnauthorizedAccessException ex)
+                string key = GetKey();
+                return ds.Merge(key, entity);
+            }, (rtv) =>
             {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
-
+                if ((int)rtv == 1)
+                    return StatusCode((int)HttpStatusCode.NoContent);
+                return StatusCode((int)HttpStatusCode.RequestedRangeNotSatisfiable, rtv);
+            });
         }
-        public HttpResponseMessage Put(string key, IEdmEntityObject entity)
+        public ActionResult Put()
         {
-            string dsName = (string)Request.Properties[Constants.ODataDataSource];
-            var ds = DataSourceProvider.GetDataSource(dsName);
-            if (ds.BeforeExcute != null)
+            var entity = GetEdmEntityObject();
+            if (entity == null)
+                return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty.");
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ri = new RequestInfo(ds.Name)
             {
-                var ri = new RequestInfo(dsName)
-                {
-                    Method = MethodType.Replace,
-                    Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
-                    Entity = entity
-                };
-                ds.BeforeExcute(ri);
-                if (!ri.Result)
-                    return Request.CreateResponse(ri.StatusCode, ri.Message);
-            }
-            try
+                Method = MethodType.Replace,
+                Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
+                Entity = entity
+            };
+            return Excute(ri, () =>
             {
-                var count = ds.Replace(key, entity);
-                return Request.CreateResponse(HttpStatusCode.OK, count);
-            }
-            catch (UnauthorizedAccessException ex)
+                string key = GetKey();
+                return ds.Replace(key, entity);
+            }, (rtv) =>
             {
-                return Request.CreateErrorResponse(HttpStatusCode.Unauthorized, ex);
-            }
-            catch (Exception err)
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, err);
-            }
-
+                if ((int)rtv == 1)
+                    return StatusCode((int)HttpStatusCode.NoContent);
+                return StatusCode((int)HttpStatusCode.RequestedRangeNotSatisfiable, rtv);
+            });
         }
-
-
-        ODataQueryOptions BuildQueryOptions()
+        string GetKey()
         {
-            var path = Request.ODataProperties().Path;
+            string key = string.Empty;
+            var path = Request.ODataFeature().Path;
+            foreach (var item in (path.Segments[1] as KeySegment).Keys)
+            {
+                key = item.Value.ToString();
+            }
+            return key;
+        }
+        ODataQueryOptions GetQueryOptions()
+        {
+            var path = Request.ODataFeature().Path;
             IEdmType edmType = path.Segments[0].EdmType;
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
                 ? (edmType as IEdmCollectionType).ElementType.Definition
                 : edmType;
-            ODataQueryContext queryContext = new ODataQueryContext(Request.GetModel(), elementType, path);
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+
+            IEdmModel model = ds.Model;
+            ODataQueryContext queryContext = new ODataQueryContext(model, elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
             return queryOptions;
+        }
+        private IEdmEntityObject GetEdmEntityObject()
+        {
+            if (Request.ContentLength == 0)
+                return null;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var path = Request.ODataFeature().Path;
+            IEdmTypeReference edmTypeReference = null;
+            if (path.EdmType is EdmCollectionType edmType)
+            {
+                edmTypeReference = edmType.ElementType;
+            }
+            else
+            {
+                if (path.EdmType is EdmEntityType edmEntityType)
+                    edmTypeReference = new EdmEntityTypeReference(edmEntityType, false);
+            }
+
+            if (edmTypeReference == null)
+                return null;
+            var p = HttpContext.ODataFeature().RequestContainer.GetService(typeof(ODataDeserializerProvider)) as DefaultODataDeserializerProvider;
+            var deserializer = p.GetEdmTypeDeserializer(edmTypeReference) as ODataResourceDeserializer;
+            InMemoryMessage message = new InMemoryMessage(Request);
+            ODataMessageReaderSettings settings = new ODataMessageReaderSettings();
+            ODataMessageReader reader = new ODataMessageReader((IODataRequestMessage)message, settings, ds.Model);
+            IEdmEntityObject entity = deserializer.Read(reader, typeof(EdmEntityObject), new ODataDeserializerContext()
+            {
+                Model = ds.Model,
+                Request = Request,
+                Path = path,
+                ResourceType = typeof(EdmEntityObject)
+            }) as IEdmEntityObject;
+            return entity;
+        }
+        ActionResult Excute(RequestInfo ri, Func<object> func, Func<object, ActionResult> result = null)
+        {
+            object rtv = null;
+            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var options = GetQueryOptions();
+            if (ds.BeforeExcute != null)
+            {
+                ds.BeforeExcute(ri);
+                if (!ri.Result)
+                    return StatusCode((int)ri.StatusCode, ri.Message);
+            }
+            try
+            {
+                rtv = func();
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode((int)HttpStatusCode.Unauthorized, ex);
+            }
+            catch (Exception err)
+            {
+                return StatusCode((int)HttpStatusCode.InternalServerError, err);
+            }
+            if (ds.AfrerExcute != null)
+                rtv = ds.AfrerExcute(ri, rtv);
+            if (result == null)
+                return Ok(rtv);
+            else
+                return result(rtv);
         }
     }
 }
