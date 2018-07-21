@@ -1,34 +1,34 @@
 # maskx.OData
 
-## [working stage]
+## Note
 
-## [using Microsoft.AspNetCore.OData]
+>This dependence on Microsoft.AspNetCore.OData, more infomation about Microsoft.AspNetCore.OData please folw those links:
+
+* <https://github.com/OData/WebApi/tree/feature/netcore>
+* <https://github.com/OData/WebApi/issues/939>
 
 ## Introduction
 
+maskx.OData support build a Odata database proxy turn your database into a OData WebApi server.
 Dynamic generate OData Controller from database.
 
-It exposes the database to the client through the web API. Client can query/insert/delete/update the database table, invoke the stored procedure, query the view and table-valued function.
+With the web server build by maskx.odata, the client can do:
 
-The web API is followed the OData protocol (http://www.odata.org/)
+* Query, insert, delete, update the database table
+* Query the view and table-valued function
+* Invoke the stored procedure
 
-## Install
+The Web API is followed the OData protocol (<http://www.odata.org/)>
 
-### Database setup
+## Why this library
 
-In your database execute the database initial script, the initial script locate at folder ['Sql/initialScript/'](https://github.com/maskx/OData/tree/master/maskx.OData/maskx.OData/Sql/initialScript/v2012)
+## Quickstart
 
-those scripts will create the stored procedures query the database schema for build web API
+### Setup WebApi
 
-#### Note
+* **Create a asp.net core Web API project**
 
->Those scripts is for SQL server 2012 and beyond, and for SQL Server 2008, you should use the scripts in v2008 folder, it will need you do more configure.
-
-### WebApi setup
-
-* **Create a web API project**
-
-* **Install nuget package**: https://www.nuget.org/packages/maskx.OData/
+* **Install nuget package** from <https://www.nuget.org/packages/maskx.OData/>
 
 * **Configure the controller**
 
@@ -50,27 +50,47 @@ those scripts will create the stored procedures query the database schema for bu
     }
 ```
 
+### Run or Deploy
+
+* Hit F5 to start the web server or deploy the project
+
+### Access the database by Web Api
+
+Now you can access the database through the web API. you can visit this page for basic OData knowledge: <http://www.odata.org/getting-started/understand-odata-in-6-steps/>
+
 ## Usage
-
-now you can access the database object through the web API. you can visit this page for basic OData knowledge: http://www.odata.org/getting-started/understand-odata-in-6-steps/
-
 ### Note
 
 >OData is case-sensitive, if you want case-insensitive, see Configuration
 
 ### Requesting Entity Collections
 
+* Query Table
+
 ```javascript
-  $.get('db1/<table name>').done(function (data) {alert(data.value) });
-  $.get('db1/<view name>').done(function (data) {alert(data.value) });
-  $.get('db1/<Table-valued function name>()').done(function (data) {alert(data.value) });
+  $.get('db1/<table name>')
+  .done(function (data) {alert(data.value) });
+```
+
+* Query View
+
+```javascript
+ $.get('db1/<view name>')
+ .done(function (data) {alert(data.value) });
+ ```
+
+* Query Table-valued function
+
+ ```javascript
+  $.get('db1/<Table-valued function name>()')
+  .done(function (data) {alert(data.value) });
 ```
 
 ### Requesting an Individual Entity by ID
 
 ```javascript
-  $.get('db1/<table name>(<the value of ID>)').done(function (data) {alert(data) });
-  $.get('db1/<view name>'(<the value of ID>)).done(function (data) {alert(data) });
+  $.get('db1/<table name>(<the value of ID>)')
+  .done(function (data) {alert(data) });
 ```
 
 ### Requesting an Individual Property
@@ -245,6 +265,16 @@ SQLDataSource has a BeforeExcute and AfterExcute properties, you can judge user'
 
 * **DefaultSchema** :Defalut Schema name, default is **dbo**
 * **LowerName**: make the name of database object to lower, default is false
+
+## Contributing
+
+Contributions are absolutely welcome!
+
+1. Fork it!
+2. Create your feature branch: git checkout -b my-new-feature
+3. Commit your changes: git commit -am 'Add some feature'
+4. Push to the branch: git push origin my-new-feature
+Submit a pull request :D
 
 ## License
 

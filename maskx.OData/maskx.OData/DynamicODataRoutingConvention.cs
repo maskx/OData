@@ -17,7 +17,7 @@ namespace maskx.OData
         public IEnumerable<ControllerActionDescriptor> SelectAction(RouteContext routeContext)
         {
             var odataFeature = routeContext.HttpContext.ODataFeature();
-            
+
             IActionDescriptorCollectionProvider actionCollectionProvider =
                     routeContext.HttpContext.RequestServices.GetRequiredService<IActionDescriptorCollectionProvider>();
             Contract.Assert(actionCollectionProvider != null);
@@ -25,6 +25,7 @@ namespace maskx.OData
             IEnumerable<ControllerActionDescriptor> actionDescriptors = actionCollectionProvider
                     .ActionDescriptors.Items.OfType<ControllerActionDescriptor>()
                     .Where(c => c.ControllerName == "DynamicOData");
+
             string actionName = string.Empty;
             switch (odataFeature.Path.PathTemplate)
             {

@@ -2,7 +2,9 @@
 using Microsoft.AspNet.OData.Routing;
 using Microsoft.AspNet.OData.Routing.Conventions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
 using Microsoft.Spatial;
@@ -94,8 +96,9 @@ namespace maskx.OData
         private static ODataRoute MapDynamicODataServiceRoute(this IRouteBuilder builder, string routeName,
             string routePrefix, IODataPathHandler pathHandler,
             IEnumerable<IODataRoutingConvention> routingConventions,
-            IDataSource dataSource)
+            IDataSource dataSource) 
         {
+            ServiceProviderServiceExtensions.GetRequiredService<ApplicationPartManager>(builder.ServiceProvider).ApplicationParts.Add(new AssemblyPart(typeof(DynamicODataController).Assembly));
             var odataRoute = builder.MapODataServiceRoute(routeName, routePrefix, containerBuilder =>
             {
                 containerBuilder
