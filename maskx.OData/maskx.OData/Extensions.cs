@@ -117,6 +117,30 @@ namespace maskx.OData
             return builder.MapDynamicODataServiceRoute(routeName, routePrefix, null, routingConventions, dataSource);
         }
 
+        private static IEndpointRouteBuilder MapDynamicODataServiceRoute(this IEndpointRouteBuilder builder, string routeName,
+    string routePrefix, IODataPathHandler pathHandler,
+    IEnumerable<IODataRoutingConvention> routingConventions,
+    IDataSource dataSource)
+        {
+            ServiceProviderServiceExtensions.GetRequiredService<ApplicationPartManager>(builder.ServiceProvider).ApplicationParts.Add(new AssemblyPart(typeof(DynamicODataController).Assembly));
+            var odataRoute = builder.MapODataRoute(routeName, routePrefix, containerBuilder =>
+            {
+                containerBuilder
+                    .AddService<IEdmModel>(Microsoft.OData.ServiceLifetime.Singleton, sp => dataSource.Model)
+                    .AddService<IDataSource>(Microsoft.OData.ServiceLifetime.Scoped, sp => dataSource)
+                    .AddService(Microsoft.OData.ServiceLifetime.Scoped, sp => routingConventions.ToList().AsEnumerable());
+                if (pathHandler != null)
+                    containerBuilder.AddService(Microsoft.OData.ServiceLifetime.Singleton, sp => pathHandler);
+            });
+            return odataRoute;
+        }
+        public static IEndpointRouteBuilder MapDynamicODataServiceRoute(this IEndpointRouteBuilder builder, string routeName, string routePrefix, IDataSource dataSource)
+        {
+            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
+            routingConventions.Insert(0, new DynamicODataRoutingConvention());
+            return builder.MapDynamicODataServiceRoute(routeName, routePrefix, null, routingConventions, dataSource);
+        }
+
         internal static object ChangeType(this object v, Type t)
         {
             if (v == null || Convert.IsDBNull(v))
