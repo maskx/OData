@@ -18,7 +18,7 @@ namespace Test
         {
             services.AddOData();
             services.AddMvc()
-                .SetCompatibilityVersion(Microsoft.AspNetCore.Mvc.CompatibilityVersion.Version_2_1);
+                .SetCompatibilityVersion(Microsoft.AspNetCore.Mvc.CompatibilityVersion.Latest);
         }
         public void Configure(IApplicationBuilder app)
         {
