@@ -1,11 +1,4 @@
-﻿using Microsoft.AspNet.OData.Extensions;
-using Microsoft.AspNet.OData.Routing;
-using Microsoft.AspNet.OData.Routing.Conventions;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.ApplicationParts;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.OData;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.OData.Edm;
 using Microsoft.Spatial;
 using System;
@@ -18,7 +11,7 @@ using System.Xml.Linq;
 
 namespace maskx.OData
 {
-    public static class Extensions
+    public static class Utilities
     {
         private static readonly Dictionary<Type, IEdmPrimitiveType> _builtInTypesMapping =
            new[]
@@ -92,53 +85,6 @@ namespace maskx.OData
         private static IEdmPrimitiveType GetPrimitiveType(EdmPrimitiveTypeKind primitiveKind)
         {
             return EdmCoreModel.Instance.GetPrimitiveType(primitiveKind);
-        }
-        private static ODataRoute MapDynamicODataServiceRoute(this IRouteBuilder builder, string routeName,
-            string routePrefix, IODataPathHandler pathHandler,
-            IEnumerable<IODataRoutingConvention> routingConventions,
-            IDataSource dataSource) 
-        {
-            ServiceProviderServiceExtensions.GetRequiredService<ApplicationPartManager>(builder.ServiceProvider).ApplicationParts.Add(new AssemblyPart(typeof(DynamicODataController).Assembly));
-            var odataRoute = builder.MapODataServiceRoute(routeName, routePrefix, containerBuilder =>
-            {
-                containerBuilder
-                    .AddService<IEdmModel>(Microsoft.OData.ServiceLifetime.Singleton, sp => dataSource.Model)
-                    .AddService<IDataSource>(Microsoft.OData.ServiceLifetime.Scoped, sp => dataSource)
-                    .AddService(Microsoft.OData.ServiceLifetime.Scoped, sp => routingConventions.ToList().AsEnumerable());
-                if (pathHandler != null)
-                    containerBuilder.AddService(Microsoft.OData.ServiceLifetime.Singleton, sp => pathHandler);
-            });
-            return odataRoute;
-        }
-        public static ODataRoute MapDynamicODataServiceRoute(this IRouteBuilder builder, string routeName, string routePrefix, IDataSource dataSource)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-            return builder.MapDynamicODataServiceRoute(routeName, routePrefix, null, routingConventions, dataSource);
-        }
-
-        private static IEndpointRouteBuilder MapDynamicODataServiceRoute(this IEndpointRouteBuilder builder, string routeName,
-    string routePrefix, IODataPathHandler pathHandler,
-    IEnumerable<IODataRoutingConvention> routingConventions,
-    IDataSource dataSource)
-        {
-            ServiceProviderServiceExtensions.GetRequiredService<ApplicationPartManager>(builder.ServiceProvider).ApplicationParts.Add(new AssemblyPart(typeof(DynamicODataController).Assembly));
-            var odataRoute = builder.MapODataRoute(routeName, routePrefix, containerBuilder =>
-            {
-                containerBuilder
-                    .AddService<IEdmModel>(Microsoft.OData.ServiceLifetime.Singleton, sp => dataSource.Model)
-                    .AddService<IDataSource>(Microsoft.OData.ServiceLifetime.Scoped, sp => dataSource)
-                    .AddService(Microsoft.OData.ServiceLifetime.Scoped, sp => routingConventions.ToList().AsEnumerable());
-                if (pathHandler != null)
-                    containerBuilder.AddService(Microsoft.OData.ServiceLifetime.Singleton, sp => pathHandler);
-            });
-            return odataRoute;
-        }
-        public static IEndpointRouteBuilder MapDynamicODataServiceRoute(this IEndpointRouteBuilder builder, string routeName, string routePrefix, IDataSource dataSource)
-        {
-            IList<IODataRoutingConvention> routingConventions = ODataRoutingConventions.CreateDefault();
-            routingConventions.Insert(0, new DynamicODataRoutingConvention());
-            return builder.MapDynamicODataServiceRoute(routeName, routePrefix, null, routingConventions, dataSource);
         }
 
         internal static object ChangeType(this object v, Type t)

@@ -1,8 +1,5 @@
-﻿
-using Microsoft.AspNet.OData.Query;
-using Microsoft.OData.Edm;
+﻿using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OData.UriParser;
-using System.Linq;
 
 namespace maskx.OData.SQLSource
 {

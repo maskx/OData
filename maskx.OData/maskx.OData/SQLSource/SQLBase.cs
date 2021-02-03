@@ -1,6 +1,7 @@
 ﻿using maskx.Database;
-using Microsoft.AspNet.OData;
-using Microsoft.AspNet.OData.Query;
+using Microsoft.AspNetCore.OData.Formatter.Value;
+using Microsoft.AspNetCore.OData.Query;
+using Microsoft.AspNetCore.OData.Routing;
 using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using Newtonsoft.Json.Linq;
@@ -550,7 +551,7 @@ namespace maskx.OData.SQLSource
         {
             var cxt = queryOptions.Context;
             EdmEntityType entityType = cxt.ElementType as EdmEntityType;
-            IEdmCollectionType edmType = cxt.Path.EdmType as IEdmCollectionType;
+            IEdmCollectionType edmType = cxt.Path.GetEdmType() as IEdmCollectionType;
             List<DbParameter> pars = new List<DbParameter>();
             string sqlCmd = BuildQueryCmd(queryOptions, pars);
             EdmEntityObjectCollection collection = new EdmEntityObjectCollection(new EdmCollectionTypeReference(edmType));
@@ -636,7 +637,7 @@ namespace maskx.OData.SQLSource
         public int GetFuncResultCount(ODataQueryOptions queryOptions)
         {
             int count = 0;
-            var ois = queryOptions.Context.Path.Segments.First() as OperationImportSegment;
+            var ois = queryOptions.Context.Path.FirstSegment as OperationImportSegment;
             var func = ois.OperationImports.First().Operation;
             IEdmType edmType = func.ReturnType.Definition;
             List<DbParameter> sqlpars = new List<DbParameter>();
@@ -655,7 +656,7 @@ namespace maskx.OData.SQLSource
 
         public IEdmObject InvokeFunction(ODataQueryOptions queryOptions)
         {
-            var ois = queryOptions.Context.Path.Segments.First() as OperationImportSegment;
+            var ois = queryOptions.Context.Path.FirstSegment as OperationImportSegment;
             var func = ois.OperationImports.First().Operation;
             IEdmType edmType = func.ReturnType.Definition;
             IEdmType elementType = (edmType as IEdmCollectionType).ElementType.Definition;
@@ -768,7 +769,7 @@ namespace maskx.OData.SQLSource
             var cxt = options.Context;
             string ns, name, order, cmdTemplete;
             order = options.ParseOrderBy(_DbUtility);
-            if (cxt.Path.Segments.First() is OperationImportSegment ois)
+            if (cxt.Path.FirstSegment is OperationImportSegment ois)
             {
                 var func = ois.OperationImports.First().Operation;
                 DbParameter par;

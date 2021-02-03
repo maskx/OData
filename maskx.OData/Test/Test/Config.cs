@@ -1,13 +1,15 @@
 ﻿using maskx.OData;
-using Microsoft.AspNet.OData.Extensions;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.OData;
+using Microsoft.AspNetCore.OData.Routing.Conventions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Net;
 using Xunit;
-using Newtonsoft.Json.Linq;
 
 namespace Test
 {
@@ -50,16 +52,16 @@ namespace Test
         {
             public void ConfigureServices(IServiceCollection services)
             {
+                services.AddRouting();
                 services.AddOData();
-                services.AddMvc();
+                services.TryAddEnumerable(ServiceDescriptor.Transient<IODataControllerActionConvention, DynamicODataControllerActionConvention>());
             }
             public void Configure(IApplicationBuilder app)
             {
-                app.UseMvc(routeBuilder =>
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
                 {
-                    var dataSource = new maskx.OData.SQLSource.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
-                    dataSource.Configuration.DefaultSchema = "schemaB";
-                    routeBuilder.MapDynamicODataServiceRoute("odata1", "db1", dataSource);
+                    endpoints.MapControllers();
                 });
             }
         }
@@ -92,16 +94,16 @@ namespace Test
         {
             public void ConfigureServices(IServiceCollection services)
             {
+                services.AddRouting();
                 services.AddOData();
-                services.AddMvc();
+                services.TryAddEnumerable(ServiceDescriptor.Transient<IODataControllerActionConvention, DynamicODataControllerActionConvention>());
             }
             public void Configure(IApplicationBuilder app)
             {
-                app.UseMvc(routeBuilder =>
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
                 {
-                    var dataSource = new maskx.OData.SQLSource.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
-                    dataSource.Configuration.LowerName = true;
-                    routeBuilder.MapDynamicODataServiceRoute("odata1", "db1", dataSource);
+                    endpoints.MapControllers();
                 });
             }
         }

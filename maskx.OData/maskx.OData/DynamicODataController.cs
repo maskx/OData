@@ -1,18 +1,19 @@
-﻿using Microsoft.AspNet.OData;
-using Microsoft.AspNet.OData.Extensions;
-using Microsoft.AspNet.OData.Formatter.Deserialization;
-using Microsoft.AspNet.OData.Query;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData;
+using Microsoft.AspNetCore.OData.Extensions;
+using Microsoft.AspNetCore.OData.Formatter;
+using Microsoft.AspNetCore.OData.Formatter.Deserialization;
+using Microsoft.AspNetCore.OData.Formatter.Value;
+using Microsoft.AspNetCore.OData.Query;
+using Microsoft.AspNetCore.OData.Routing;
+using Microsoft.AspNetCore.OData.Routing.Controllers;
+using Microsoft.Extensions.Options;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Linq;
 using System.Net;
-
-
-
 
 namespace maskx.OData
 {
@@ -21,19 +22,25 @@ namespace maskx.OData
     /// </summary>
     public class DynamicODataController : ODataController
     {
+        DynamicOdataOptions _Options;
+        public DynamicODataController(IOptions<DynamicOdataOptions> options)
+        {
+            _Options = options?.Value;
+        }
         /// <summary>
         /// 
         /// </summary>
         /// <returns></returns>
         public ActionResult Get()
         {
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var feature = HttpContext.ODataFeature();
+            var ds = _Options.GetDataSource(feature.PrefixName);
             var options = GetQueryOptions();
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Get,
                 QueryOptions = options,
-                Target = options.Context.Path.Segments[0].ToString()
+                Target = options.Context.Path.FirstSegment.ToString()
             };
             return Excute(ri, () =>
             {
@@ -48,13 +55,14 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetByKey()
         {
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var feature = HttpContext.ODataFeature();
+            var ds = _Options.GetDataSource(feature.PrefixName);
             var options = GetQueryOptions();
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Get,
                 QueryOptions = options,
-                Target = options.Context.Path.Segments[0].ToString()
+                Target = options.Context.Path.FirstSegment.ToString()
             };
             return Excute(ri, () =>
             {
@@ -71,10 +79,10 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetSimpleFunction()
         {
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var path = Request.ODataFeature().Path;
 
-            OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
+            OperationImportSegment seg = path.FirstSegment as OperationImportSegment;
             IEdmType edmType = seg.EdmType;
 
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
@@ -103,9 +111,9 @@ namespace maskx.OData
         public ActionResult DoAction(ODataActionParameters parameters)
         {
 
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var path = Request.ODataFeature().Path;
-            OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
+            OperationImportSegment seg = path.FirstSegment as OperationImportSegment;
 
             JObject jobj = null;
             string s = Request.GetRawBodyStringAsync().Result;
@@ -134,13 +142,13 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetCount()
         {
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var options = GetQueryOptions();
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Count,
                 QueryOptions = options,
-                Target = options.Context.Path.Segments[0].ToString(),
+                Target = options.Context.Path.FirstSegment.ToString(),
             };
             return Excute(ri, () =>
             {
@@ -153,10 +161,10 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetFuncResultCount()
         {
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var options = GetQueryOptions();
             var path = Request.ODataFeature().Path;
-            OperationImportSegment seg = path.Segments[0] as OperationImportSegment;
+            OperationImportSegment seg = path.FirstSegment as OperationImportSegment;
             JObject pars = new JObject();
             foreach (var p in seg.Parameters)
             {
@@ -189,7 +197,7 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty");
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Create,
@@ -206,7 +214,7 @@ namespace maskx.OData
         }
         public ActionResult Delete()
         {
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var options = GetQueryOptions();
 
             var ri = new RequestInfo(ds.Name)
@@ -217,7 +225,7 @@ namespace maskx.OData
             return Excute(ri, () =>
             {
                 string key = GetKey();
-                return ds.Delete(key, options.Context.Path.EdmType);
+                return ds.Delete(key, options.Context.Path.GetEdmType());
             }, (rtv) =>
             {
                 if ((int)rtv == 1)
@@ -231,7 +239,7 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty.");
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Merge,
@@ -254,7 +262,7 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty.");
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var ri = new RequestInfo(ds.Name)
             {
                 Method = MethodType.Replace,
@@ -276,7 +284,8 @@ namespace maskx.OData
         {
             string key = string.Empty;
             var path = Request.ODataFeature().Path;
-            foreach (var item in (path.Segments[1] as KeySegment).Keys)
+            // todo: need get keys
+            foreach (var item in (path.FirstSegment as KeySegment).Keys)
             {
                 key = item.Value.ToString();
             }
@@ -285,13 +294,11 @@ namespace maskx.OData
         ODataQueryOptions GetQueryOptions()
         {
             var path = Request.ODataFeature().Path;
-            IEdmType edmType = path.Segments[0].EdmType;
+            IEdmType edmType = path.FirstSegment.EdmType;
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
                 ? (edmType as IEdmCollectionType).ElementType.Definition
                 : edmType;
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
-
-            IEdmModel model = ds.Model;
+            IEdmModel model = Request.ODataFeature().Model;
             ODataQueryContext queryContext = new ODataQueryContext(model, elementType, path);
             ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
             return queryOptions;
@@ -300,39 +307,39 @@ namespace maskx.OData
         {
             if (Request.ContentLength == 0)
                 return null;
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(Request.ODataFeature().PrefixName);
             var path = Request.ODataFeature().Path;
             IEdmTypeReference edmTypeReference = null;
-            if (path.EdmType is EdmCollectionType edmType)
+            if (path.GetEdmType() is EdmCollectionType edmType)
             {
                 edmTypeReference = edmType.ElementType;
             }
             else
             {
-                if (path.EdmType is EdmEntityType edmEntityType)
+                if (path.GetEdmType() is EdmEntityType edmEntityType)
                     edmTypeReference = new EdmEntityTypeReference(edmEntityType, false);
             }
 
             if (edmTypeReference == null)
                 return null;
-            var p = HttpContext.ODataFeature().RequestContainer.GetService(typeof(ODataDeserializerProvider)) as DefaultODataDeserializerProvider;
+            var p = Request.GetDeserializerProvider();
             var deserializer = p.GetEdmTypeDeserializer(edmTypeReference) as ODataResourceDeserializer;
             InMemoryMessage message = new InMemoryMessage(Request);
             ODataMessageReaderSettings settings = new ODataMessageReaderSettings();
             ODataMessageReader reader = new ODataMessageReader((IODataRequestMessage)message, settings, ds.Model);
-            IEdmEntityObject entity = deserializer.Read(reader, typeof(EdmEntityObject), new ODataDeserializerContext()
+            IEdmEntityObject entity = deserializer.ReadAsync(reader, typeof(EdmEntityObject), new ODataDeserializerContext()
             {
                 Model = ds.Model,
                 Request = Request,
                 Path = path,
                 ResourceType = typeof(EdmEntityObject)
-            }) as IEdmEntityObject;
+            }).Result as IEdmEntityObject;
             return entity;
         }
         ActionResult Excute(RequestInfo ri, Func<object> func, Func<object, ActionResult> result = null)
         {
             object rtv = null;
-            var ds = HttpContext.ODataFeature().RequestContainer.GetService(typeof(IDataSource)) as IDataSource;
+            var ds = _Options.GetDataSource(HttpContext.ODataFeature().PrefixName);
             var options = GetQueryOptions();
             if (ds.BeforeExcute != null)
             {

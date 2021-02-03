@@ -1,9 +1,6 @@
-﻿using Microsoft.AspNet.OData;
+﻿using Microsoft.AspNetCore.OData.Formatter.Value;
 using System;
-using System.Collections.Generic;
 using System.Data.Common;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace maskx.OData.SQLSource
 {

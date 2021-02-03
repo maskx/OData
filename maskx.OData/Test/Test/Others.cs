@@ -1,15 +1,9 @@
-﻿using maskx.OData;
-using Microsoft.AspNet.OData.Extensions;
-using Microsoft.AspNetCore;
+﻿using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http;
-using System.Text;
 using Xunit;
 
 namespace Test
@@ -71,21 +65,11 @@ namespace Test
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddOData();
-            services.AddMvc();
+          
         }
         public void Configure(IApplicationBuilder app)
         {
-            app.UseMvc(routeBuilder =>
-            {
-                routeBuilder.MapDynamicODataServiceRoute("odata1", "db1",
-                    new maskx.OData.SQLSource.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True"));
-            });
-            app.UseMvc(routeBuilder =>
-            {
-                routeBuilder.MapDynamicODataServiceRoute("odata2", "db2",
-                    new maskx.OData.SQLSource.SQLServer("odata", "Data Source=.;Initial Catalog=test;Integrated Security=True"));
-            });
+           
         }
     }
 
@@ -93,23 +77,11 @@ namespace Test
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddOData();
-            services.AddMvc();
+          
         }
         public void Configure(IApplicationBuilder app)
         {
-            app.UseMvc(routeBuilder =>
-            {
-                var sourceA = new maskx.OData.SQLSource.SQLServer("odata", "Data Source =.; Initial Catalog = Group; Integrated Security = True");
-                sourceA.Configuration.DefaultSchema = "schemaA";
-                routeBuilder.MapDynamicODataServiceRoute("odata1", "db1/SchemaA", sourceA);
-            });
-            app.UseMvc(routeBuilder =>
-            {
-                var sourceB = new maskx.OData.SQLSource.SQLServer("odata", "Data Source=.;Initial Catalog=Group;Integrated Security=True");
-                sourceB.Configuration.DefaultSchema = "schemaB";
-                routeBuilder.MapDynamicODataServiceRoute("odata2", "db1/SchemaB", sourceB);
-            });
+           
         }
     }
 

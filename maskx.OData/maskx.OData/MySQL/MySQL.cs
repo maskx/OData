@@ -1,16 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data.Common;
-using System.Linq;
-using System.Text;
-using maskx.Database;
+﻿using maskx.Database;
 using maskx.OData.MySQL;
-using Microsoft.AspNet.OData;
-using Microsoft.AspNet.OData.Query;
 using Microsoft.OData.Edm;
-using Microsoft.OData.UriParser;
 using MySql.Data.MySqlClient;
-using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
 
 namespace maskx.OData.SQLSource
 {

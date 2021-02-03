@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Net;
 using Xunit;
-using System.Net;
-using System.Net.Http;
 
 namespace Test
 {
@@ -14,9 +10,9 @@ namespace Test
         [Fact]
         public void GetSuccess()
         {
-            var rtv = Common.GetJObject("Tag");
+            var rtv = Common.GetJObject("Table1");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#Tag", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#Table1", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
         [Fact]
@@ -30,9 +26,9 @@ namespace Test
         [Fact]
         public void GetByKeySuccess()
         {
-            var rtv = Common.GetJObject("Tag(2)");
+            var rtv = Common.GetJObject("Table1(2)");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#Tag/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#Table1/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
         [Fact]

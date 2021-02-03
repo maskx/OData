@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Text;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Test
@@ -11,19 +11,22 @@ namespace Test
     public class WebHostFixture : IDisposable
     {
 
-        IWebHost _WebHost;
+        IHost _WebHost;
 
         public WebHostFixture()
         {
-            _WebHost = WebHost.CreateDefaultBuilder()
-                .UseStartup<Startup>()
-                .UseKestrel(options =>
+            _WebHost = Host.CreateDefaultBuilder()
+                .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    options.Limits.RequestHeadersTimeout = new TimeSpan(9999999999);
-                    options.Listen(IPAddress.Loopback, Common._Port);
-                })
-                .Build();
-            _WebHost.Start();
+                    webBuilder.UseStartup<Startup>()
+                    .UseKestrel(options =>
+                    {
+                        options.Limits.RequestHeadersTimeout = new TimeSpan(9999999999);
+                        options.Listen(IPAddress.Loopback, Common._Port);
+                    });
+                }).Build();
+            _WebHost.RunAsync();
+            Task.Delay(1000);
         }
 
         public void Dispose()

@@ -1,12 +1,8 @@
-﻿using System;
+﻿using maskx.Database;
+using Microsoft.OData.Edm;
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Text;
-using maskx.Database;
-using maskx.OData.SQLSource;
-using Microsoft.AspNet.OData.Query;
-using Microsoft.OData.Edm;
-using Microsoft.OData.UriParser;
 
 namespace maskx.OData.SQLSource
 {
