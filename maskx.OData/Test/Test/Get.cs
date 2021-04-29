@@ -26,7 +26,7 @@ namespace Test
         [Fact]
         public void GetByKeySuccess()
         {
-            var rtv = Common.GetJObject("Table1(2)");
+            var rtv = Common.GetJObject("Table1(B86EECAF-7D6C-4823-9130-C10072C34C17)");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Table1/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
 

@@ -34,8 +34,7 @@ namespace maskx.OData
 
         public string GetHeader(string headerName)
         {
-            string headerValue;
-            return this.headers.TryGetValue(headerName, out headerValue) ? headerValue : null;
+            return this.headers.TryGetValue(headerName, out string headerValue) ? headerValue : null;
         }
 
         public void SetHeader(string headerName, string headerValue)
@@ -54,7 +53,7 @@ namespace maskx.OData
         {
             if (this.DisposeAction != null)
             {
-                this.DisposeAction();
+                DisposeAction();
             }
         }
     }

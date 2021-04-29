@@ -13,6 +13,7 @@ using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Linq;
 using System.Net;
 
 namespace maskx.OData
@@ -22,7 +23,7 @@ namespace maskx.OData
     /// </summary>
     public class DynamicODataController : ODataController
     {
-        DynamicOdataOptions _Options;
+        readonly DynamicOdataOptions _Options;
         public DynamicODataController(IOptions<DynamicOdataOptions> options)
         {
             _Options = options?.Value;
@@ -56,7 +57,9 @@ namespace maskx.OData
         public ActionResult GetByKey()
         {
             var feature = HttpContext.ODataFeature();
+            // todo: when key data type wrong in query string, feature.PrefixName will be null
             var ds = _Options.GetDataSource(feature.PrefixName);
+
             var options = GetQueryOptions();
             var ri = new RequestInfo(ds.Name)
             {
@@ -88,8 +91,8 @@ namespace maskx.OData
             IEdmType elementType = edmType.TypeKind == EdmTypeKind.Collection
                 ? (edmType as IEdmCollectionType).ElementType.Definition
                 : edmType;
-            ODataQueryContext queryContext = new ODataQueryContext(Request.GetModel(), elementType, path);
-            ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
+            ODataQueryContext queryContext = new(Request.GetModel(), elementType, path);
+            ODataQueryOptions queryOptions = new(queryContext, Request);
 
 
             var ri = new RequestInfo(ds.Name)
@@ -165,7 +168,7 @@ namespace maskx.OData
             var options = GetQueryOptions();
             var path = Request.ODataFeature().Path;
             OperationImportSegment seg = path.FirstSegment as OperationImportSegment;
-            JObject pars = new JObject();
+            JObject pars = new();
             foreach (var p in seg.Parameters)
             {
                 try
@@ -285,7 +288,8 @@ namespace maskx.OData
             string key = string.Empty;
             var path = Request.ODataFeature().Path;
             // todo: need get keys
-            foreach (var item in (path.FirstSegment as KeySegment).Keys)
+            KeySegment keySegment = path.First((e) => e is KeySegment) as KeySegment;  
+            foreach (var item in keySegment.Keys)
             {
                 key = item.Value.ToString();
             }
@@ -299,8 +303,8 @@ namespace maskx.OData
                 ? (edmType as IEdmCollectionType).ElementType.Definition
                 : edmType;
             IEdmModel model = Request.ODataFeature().Model;
-            ODataQueryContext queryContext = new ODataQueryContext(model, elementType, path);
-            ODataQueryOptions queryOptions = new ODataQueryOptions(queryContext, Request);
+            ODataQueryContext queryContext = new(model, elementType, path);
+            ODataQueryOptions queryOptions = new(queryContext, Request);
             return queryOptions;
         }
         private IEdmEntityObject GetEdmEntityObject()
@@ -324,9 +328,9 @@ namespace maskx.OData
                 return null;
             var p = Request.GetDeserializerProvider();
             var deserializer = p.GetEdmTypeDeserializer(edmTypeReference) as ODataResourceDeserializer;
-            InMemoryMessage message = new InMemoryMessage(Request);
-            ODataMessageReaderSettings settings = new ODataMessageReaderSettings();
-            ODataMessageReader reader = new ODataMessageReader((IODataRequestMessage)message, settings, ds.Model);
+            InMemoryMessage message = new(Request);
+            ODataMessageReaderSettings settings = new();
+            ODataMessageReader reader = new((IODataRequestMessage)message, settings, ds.Model);
             IEdmEntityObject entity = deserializer.ReadAsync(reader, typeof(EdmEntityObject), new ODataDeserializerContext()
             {
                 Model = ds.Model,
