@@ -1,11 +1,8 @@
-﻿using maskx.OData;
-using Microsoft.AspNetCore;
+﻿using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.OData;
-using Microsoft.AspNetCore.OData.Routing.Conventions;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Net;
@@ -53,8 +50,7 @@ namespace Test
             public void ConfigureServices(IServiceCollection services)
             {
                 services.AddRouting();
-                services.AddOData();
-                services.TryAddEnumerable(ServiceDescriptor.Transient<IODataControllerActionConvention, DynamicODataControllerActionConvention>());
+                services.AddControllers().AddOData();
             }
             public void Configure(IApplicationBuilder app)
             {
@@ -95,8 +91,7 @@ namespace Test
             public void ConfigureServices(IServiceCollection services)
             {
                 services.AddRouting();
-                services.AddOData();
-                services.TryAddEnumerable(ServiceDescriptor.Transient<IODataControllerActionConvention, DynamicODataControllerActionConvention>());
+                services.AddControllers().AddOData();
             }
             public void Configure(IApplicationBuilder app)
             {

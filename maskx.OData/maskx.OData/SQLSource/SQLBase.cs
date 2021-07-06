@@ -1,4 +1,5 @@
 ﻿using maskx.Database;
+using maskx.OData.Infrastructure;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Formatter.Value;
 using Microsoft.AspNetCore.OData.Query;
@@ -31,6 +32,9 @@ namespace maskx.OData.SQLSource
         #region member
         public string ConnectionString { get; set; }
         private EdmComplexTypeReference _DefaultSPReturnType;
+        private readonly CSharpUtilities _CSharpUtilities = new CSharpUtilities();
+        private readonly Dictionary<string, CSharpUniqueNamer> _TableNamers = new Dictionary<string, CSharpUniqueNamer>();
+        private readonly Dictionary<string, CSharpUniqueNamer> _columnNamers = new Dictionary<string, CSharpUniqueNamer>();
         #endregion
 
         #region private Method
@@ -54,17 +58,25 @@ namespace maskx.OData.SQLSource
         {
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
             EdmEntityType t = null;
+            string currentSchemaName = string.Empty;
+            string currentTableName = string.Empty;
+
             foreach (var (SchemaName, TableName, ColumnName, DataType, isKey) in Items)
             {
-                string entityName = Configuration.DefaultSchema == SchemaName ? TableName : string.Format("{0}.{1}", SchemaName, TableName);
-                if (Configuration.LowerName)
-                    entityName = entityName.ToLower();
-                if (t == null || t.Name != TableName || t.Namespace != SchemaName)
+
+                if (t == null || currentTableName != TableName || currentSchemaName != SchemaName)
                 {
+                    currentSchemaName = SchemaName;
+                    currentTableName = TableName;
+                    string tName = GetEntityName(SchemaName, TableName);
+                    string sName = _CSharpUtilities.GenerateCSharpIdentifier(SchemaName, null, null);
+                    string entityName = Configuration.DefaultSchema == sName ? tName : string.Format("{0}.{1}", sName, tName);
+                    if (Configuration.LowerName)
+                        entityName = entityName.ToLower();
                     IEdmEntitySet edmSet = container.FindEntitySet(entityName);
                     if (edmSet == null)
                     {
-                        t = new EdmEntityType(SchemaName, TableName);
+                        t = new EdmEntityType(sName, tName);
                         model.AddElement(t);
                         container.AddEntitySet(entityName, t);
                     }
@@ -72,13 +84,14 @@ namespace maskx.OData.SQLSource
                         t = edmSet.EntityType() as EdmEntityType;
                 }
                 var et = GetEdmType(DataType);
-                if (et.HasValue)
+                if (!et.HasValue)
+                    continue;
+                if (et.Value == EdmPrimitiveTypeKind.Binary)
+                    continue;
+                EdmStructuralProperty key = t.AddStructuralProperty(GetPropertyName($"{currentSchemaName}.{currentTableName}", Configuration.LowerName ? ColumnName.ToLower() : ColumnName), et.Value, true);
+                if (isKey)
                 {
-                    EdmStructuralProperty key = t.AddStructuralProperty(Configuration.LowerName ? ColumnName.ToLower() : ColumnName, et.Value, true);
-                    if (isKey)
-                    {
-                        t.AddKeys(key);
-                    }
+                    t.AddKeys(key);
                 }
             }
         }
@@ -243,7 +256,6 @@ namespace maskx.OData.SQLSource
         void AddRelationship(EdmModel model)
         {
             string fk = string.Empty;
-           
 
             EdmEntityType parent = null;
             EdmEntityType refrenced = null;
@@ -258,8 +270,8 @@ namespace maskx.OData.SQLSource
                     {
                         CreatReference(model, parent, refrenced, principalProperties, dependentProperties);
                     }
-                    parent = model.FindDeclaredType(string.Format("{0}.{1}", ParentSchemaName, ParentName)) as EdmEntityType;
-                    refrenced = model.FindDeclaredType(string.Format("{0}.{1}", ReferencedSchemaName, ReferencedName)) as EdmEntityType;
+                    parent = model.FindDeclaredType(GetEntityTypeName(ParentSchemaName, ParentName)) as EdmEntityType;
+                    refrenced = model.FindDeclaredType(GetEntityTypeName(ReferencedSchemaName, ReferencedName)) as EdmEntityType;
 
                     principalProperties = new List<IEdmStructuralProperty>();
                     dependentProperties = new List<IEdmStructuralProperty>();
@@ -303,6 +315,12 @@ namespace maskx.OData.SQLSource
             var referenceSet = model.EntityContainer.FindEntitySet(referencedEntityName) as EdmEntitySet;
             referenceSet.AddNavigationTarget(np, parentSet);
         }
+
+        string BuildNavigationName()
+        {
+            return string.Empty;
+        }
+
         #endregion
 
 
@@ -712,7 +730,7 @@ namespace maskx.OData.SQLSource
             var wp = new List<string>();
             foreach (NavigationPropertySegment item2 in expanded.PathToNavigationProperty)
             {
-                foreach (var p in item2.NavigationProperty.ReferentialConstraint.PropertyPairs)
+                foreach (var p in item2.NavigationProperty.Partner.ReferentialConstraint.PropertyPairs)
                 {
                     edmEntity.TryGetPropertyValue(p.DependentProperty.Name, out object v);
                     var par = _DbUtility.CreateParameter(v, pars);
@@ -944,6 +962,27 @@ namespace maskx.OData.SQLSource
         #endregion
 
 
-
+        private string GetPropertyName(string table, string column)
+        {
+            if (!_columnNamers.TryGetValue(table, out CSharpUniqueNamer columnNamer))
+            {
+                columnNamer = new CSharpUniqueNamer();
+                _columnNamers.Add(table, columnNamer);
+            }
+            return _columnNamers[table].GetName(column);
+        }
+        private string GetEntityName(string schema, string table)
+        {
+            if (!_TableNamers.TryGetValue(schema, out CSharpUniqueNamer cSharpNamer))
+            {
+                cSharpNamer = new CSharpUniqueNamer();
+                _TableNamers.Add(schema, cSharpNamer);
+            }
+            return cSharpNamer.GetName(table);
+        }
+        private string GetEntityTypeName(string schema, string table)
+        {
+            return $"{_CSharpUtilities.GenerateCSharpIdentifier(schema, null, null)}.{GetEntityName(schema, table)}";
+        }
     }
 }

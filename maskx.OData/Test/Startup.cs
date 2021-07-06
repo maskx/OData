@@ -1,4 +1,5 @@
-﻿using maskx.OData.Extensions;
+﻿using maskx.OData;
+using maskx.OData.Extensions;
 using maskx.OData.SQLSource;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.OData;
@@ -10,18 +11,15 @@ namespace Test
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddRouting();            
-            services.AddOData(opt => opt.Count().Filter().Expand().Select().OrderBy().SetMaxTop(5));
+            services.AddControllers().AddOData(opt => opt.Count().Filter().Expand().Select().OrderBy().SetMaxTop(5));
             services.AddDynamicOdata();
+            services.AddOptions<DynamicOdataOptions>().Configure((options) =>
+            {
+                options.DataSources.Add(Common._RouterPrefix, new SQLServer("ds", "Data Source=.;Initial Catalog=Northwind;Integrated Security=True"));
+            });
         }
         public void Configure(IApplicationBuilder app)
         {
-            // this should run before UseEndpoints
-            app.UseDynamicOData((op) =>
-            {
-                op.AddDataSource(Common._RouterPrefix, new SQLServer("ds", "Data Source=.;Initial Catalog=ODataTest;Integrated Security=True"));
-            });
-
             app.UseRouting();
             app.UseEndpoints(endpoints =>
             {

@@ -71,7 +71,7 @@ namespace maskx.OData.SQLSource
                 case "image":
                 case "varbinary":
                 case "binary":
-                    return EdmPrimitiveTypeKind.Byte;
+                    return EdmPrimitiveTypeKind.Binary;
                 default:
                     return null;
             }

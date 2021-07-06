@@ -17,6 +17,18 @@ namespace maskx.OData.SQLSource
             }
             var t = reader.GetFieldType(fieldIndex);
             entity.TryGetPropertyType(name, out Type et);
+            // todo: byte[] need investment odata document
+            if (t == typeof(byte[]))
+            {
+                entity.TrySetPropertyValue(name, null);
+                return;
+            }
+            if (name == "Notes")
+            {
+                entity.TrySetPropertyValue(name, null);
+                return;
+            }
+
             if (t == typeof(DateTime))
             {
                 entity.TrySetPropertyValue(name, new DateTimeOffset(reader.GetDateTime(fieldIndex)));

@@ -10,40 +10,49 @@ namespace Test
         [Fact]
         public void GetSuccess()
         {
-            var rtv = Common.GetJObject("Table1");
+            var rtv = Common.GetJObject("Categories");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#Table1", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#Categories", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
         [Fact]
         public void GetWithSchemaSuccess()
         {
-            var rtv = Common.GetJObject("schemaB.Group");
+            var rtv = Common.GetJObject("dbo.Orders");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#schemaB.Group", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#dbo.Orders", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
         [Fact]
         public void GetByKeySuccess()
         {
-            var rtv = Common.GetJObject("Table1(B86EECAF-7D6C-4823-9130-C10072C34C17)");
+            var rtv = Common.GetJObject("Employees(2)");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#Table1/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#Orders/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
 
         }
         [Fact]
         public void GetByKeyWithExpandSuccess()
         {
-            var rtv = Common.GetJObject("AspNetUsers('3ceb1059-9953-4f77-bdc6-357db132500c')?$expand=AspNetUserRoles");
+            // todo: table name may contain space, need support
+            var rtv = Common.GetJObject("Orders(10248)?$expand=Customers");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
-            Assert.EndsWith("$metadata#AspNetUsers/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("/$metadata#Orders(Customers())/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
+        }
+        [Fact]
+        public void GetByKeyWithMulitExpandSuccess()
+        {
+            // todo: table name may contain space, need support
+            var rtv = Common.GetJObject("Orders(10248)?$expand=Customers,Employees");
+            Assert.Equal(HttpStatusCode.OK, rtv.Item1);
+            Assert.EndsWith("/$metadata#Orders(Customers())/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
         public void GetPropertySuccess()
         {
             //TODO: not support now
             //~/entityset/key/property/
-            var rtv = Common.GetJObject("Tag(1)/Name");
+            var rtv = Common.GetJObject("Orders(10248)/ShipName");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Tag/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
         }
@@ -52,7 +61,7 @@ namespace Test
         {
             //TODO: not support now
             //~/entityset/key/property/$value
-            var rtv = Common.GetJObject("Tag(1)/Name/$value");
+            var rtv = Common.GetJObject("Orders(10248)/ShipName/$value");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Tag/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
         }
