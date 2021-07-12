@@ -26,7 +26,7 @@ namespace Test
         [Fact]
         public void GetByKeySuccess()
         {
-            var rtv = Common.GetJObject("Employees(2)");
+            var rtv = Common.GetJObject("Orders/10248");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("$metadata#Orders/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
 
@@ -34,7 +34,6 @@ namespace Test
         [Fact]
         public void GetByKeyWithExpandSuccess()
         {
-            // todo: table name may contain space, need support
             var rtv = Common.GetJObject("Orders(10248)?$expand=Customers");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("/$metadata#Orders(Customers())/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
@@ -42,8 +41,7 @@ namespace Test
         [Fact]
         public void GetByKeyWithMulitExpandSuccess()
         {
-            // todo: table name may contain space, need support
-            var rtv = Common.GetJObject("Orders(10248)?$expand=Customers,Employees");
+            var rtv = Common.GetJObject("Orders(10248)?$expand=Employees");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.EndsWith("/$metadata#Orders(Customers())/$entity", rtv.Item2.Property("@odata.context").Value.ToString());
         }

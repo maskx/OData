@@ -21,6 +21,7 @@ namespace Test
         public void Configure(IApplicationBuilder app)
         {
             app.UseRouting();
+            app.UseODataRouteDebug();
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();

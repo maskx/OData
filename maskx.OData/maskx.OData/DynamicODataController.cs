@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData;
+using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.AspNetCore.OData.Extensions;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Formatter.Deserialization;
@@ -21,7 +22,7 @@ namespace maskx.OData
     /// <summary>
     /// 
     /// </summary>
-    
+
     public class DynamicODataController : ODataController
     {
         readonly DynamicOdataOptions _Options;
@@ -289,7 +290,7 @@ namespace maskx.OData
             string key = string.Empty;
             var path = Request.ODataFeature().Path;
             // todo: need get keys
-            KeySegment keySegment = path.First((e) => e is KeySegment) as KeySegment;  
+            KeySegment keySegment = path.First((e) => e is KeySegment) as KeySegment;
             foreach (var item in keySegment.Keys)
             {
                 key = item.Value.ToString();
@@ -327,11 +328,11 @@ namespace maskx.OData
 
             if (edmTypeReference == null)
                 return null;
+            IServiceProvider requestContainer = Request.CreateRouteServices(Request.ODataFeature().RoutePrefix);
+            ODataMessageReader reader = Request.GetODataMessageReader(requestContainer);
             var p = Request.GetDeserializerProvider();
             var deserializer = p.GetEdmTypeDeserializer(edmTypeReference) as ODataResourceDeserializer;
-            InMemoryMessage message = new(Request);
-            ODataMessageReaderSettings settings = new();
-            ODataMessageReader reader = new((IODataRequestMessage)message, settings, ds.Model);
+           
             IEdmEntityObject entity = deserializer.ReadAsync(reader, typeof(EdmEntityObject), new ODataDeserializerContext()
             {
                 Model = ds.Model,
