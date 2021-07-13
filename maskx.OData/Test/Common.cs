@@ -52,8 +52,7 @@ namespace Test
             HttpClient client = new HttpClient();
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, string.Format(Tpl, query));
             HttpResponseMessage response = client.SendAsync(request).Result;
-            var str = response.Content.ReadAsStringAsync().Result;
-            return new ValueTuple<HttpStatusCode, JObject>(response.StatusCode, JObject.Parse(str));
+            return new ValueTuple<HttpStatusCode, JObject>(response.StatusCode, null);
         }
         public static ValueTuple<HttpStatusCode, string> Put(string query, object content)
         {
