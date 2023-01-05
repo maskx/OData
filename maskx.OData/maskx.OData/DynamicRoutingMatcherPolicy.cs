@@ -15,8 +15,8 @@ namespace maskx.OData
 {
     public class DynamicRoutingMatcherPolicy : MatcherPolicy, IEndpointSelectorPolicy
     {
-        DynamicOdataOptions _Options;
-        public DynamicRoutingMatcherPolicy(IOptions<DynamicOdataOptions> options)
+        DynamicODataOptions _Options;
+        public DynamicRoutingMatcherPolicy(IOptions<DynamicODataOptions> options)
         {
             _Options = options?.Value;
         }

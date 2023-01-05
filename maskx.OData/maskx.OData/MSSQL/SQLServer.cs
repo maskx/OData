@@ -1,15 +1,21 @@
 ﻿using maskx.Database;
+using maskx.OData.Infrastructure;
 using Microsoft.OData.Edm;
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 
 namespace maskx.OData.SQLSource
 {
+    /// <summary>
+    /// \efcore\src\EFCore.SqlServer\Scaffolding\Internal\SqlServerDatabaseModelFactory.cs
+    /// </summary>
     public class SQLServer : SQLBase
     {
         int SQLVersion = 11;
-        public SQLServer(string name, string connectionString) : base(name, connectionString)
+        public SQLServer(string connectionString) : base(connectionString)
         {
             using (var conn = new SqlConnection(connectionString))
             {
@@ -19,16 +25,38 @@ namespace maskx.OData.SQLSource
             }
 
         }
+        public override DbParameter CreateParameter(Property property, object value,List<DbParameter> pars)
+        {
+            var par = new SqlParameter("@p" + pars.Count, value)
+            {
+                SqlDbType = (SqlDbType)property.DbType
+            };
+            pars.Add(par);
+            return par;
+        }
+        public override DbParameter CreateParameter(object value, List<DbParameter> pars)
+        {
+            var par = new SqlParameter("@p" + pars.Count, value);
+            pars.Add(par);
+            return par;
+        }
+        public override DbParameter CreateParameter(string name, object value)
+        {
+            var par = new SqlParameter(name, value);
+            return par;
+        }
 
-        SQLServerDbUtility _SQLServerDbUtility = new SQLServerDbUtility();
-        protected override DbUtility _DbUtility { get { return _SQLServerDbUtility; } }
+        public override string SafeDbObject(string obj)
+        {
+            return string.Format("[{0}]", obj);
+        }
 
         protected override DbAccess CreateDbAccess(string connectionString)
         {
-            return new DbAccess(System.Data.SqlClient.SqlClientFactory.Instance, connectionString);
+            return new DbAccess(SqlClientFactory.Instance, connectionString);
         }
 
-        protected override EdmPrimitiveTypeKind? GetEdmType(string dbType)
+        protected override EdmPrimitiveTypeKind GetEdmType(string dbType)
         {
             switch (dbType.ToLower())
             {
@@ -73,7 +101,7 @@ namespace maskx.OData.SQLSource
                 case "binary":
                     return EdmPrimitiveTypeKind.Binary;
                 default:
-                    return null;
+                    return EdmPrimitiveTypeKind.None;
             }
         }
 
@@ -394,6 +422,27 @@ select
                 conn.Close();
             }
         }
+
+        protected override int GetDbType(string dbType)
+        {
+            switch (dbType.ToLower())
+            {
+                case "table type": return (int)SqlDbType.Udt;
+                case "sql_variant": return (int)SqlDbType.Variant;
+                default: return (int)Enum.Parse<SqlDbType>(dbType, true);
+            }
+        }
+
+        protected override ParameterDirection GetParameterDirection(string direction)
+        {
+            return direction.ToUpper() switch
+            {
+                "IN" => ParameterDirection.Input,
+                "INOUT" => ParameterDirection.InputOutput,
+                _ => ParameterDirection.Input,
+            };
+        }
+
         protected override string QueryPagingCommandTemplete
         {
             //https://support.microsoft.com/en-us/help/321185/how-to-determine-the-version-edition-and-update-level-of-sql-server-an

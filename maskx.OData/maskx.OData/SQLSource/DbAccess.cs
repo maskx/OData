@@ -156,7 +156,7 @@ namespace maskx.Database
             var dbCommand = _Connection.CreateCommand();
             dbCommand.CommandType = commandType;
             dbCommand.CommandText = commandText;
-
+            
             if (commandTimeout > 0)
                 dbCommand.CommandTimeout = commandTimeout;
 

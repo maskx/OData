@@ -23,11 +23,6 @@ namespace maskx.OData.SQLSource
                 entity.TrySetPropertyValue(name, null);
                 return;
             }
-            if (name == "Notes")
-            {
-                entity.TrySetPropertyValue(name, null);
-                return;
-            }
 
             if (t == typeof(DateTime))
             {

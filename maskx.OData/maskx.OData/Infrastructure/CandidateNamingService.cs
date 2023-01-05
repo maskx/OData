@@ -41,27 +41,6 @@ namespace maskx.OData.Infrastructure
             return candidateStringBuilder.ToString();
         }
 
-        private static string FindCandidateNavigationName(IEnumerable<string> properties)
-        {
-            if (!properties.Any())
-            {
-                return string.Empty;
-            }
-
-            var candidateName = string.Empty;
-            var firstProperty = properties.First();
-            if (properties.Count() == 1)
-            {
-                candidateName = firstProperty;
-            }
-            else
-            {
-                candidateName = FindCommonPrefix(firstProperty, properties);
-            }
-
-            return StripId(candidateName);
-        }
-
         private static string FindCommonPrefix(string firstName, IEnumerable<string> propertyNames)
         {
             var prefixLength = 0;
@@ -102,6 +81,47 @@ namespace maskx.OData.Infrastructure
             return i != 0
                 ? commonPrefix.Substring(0, i + 1)
                 : commonPrefix;
+        }
+
+        public static string GetDependentEndCandidateNavigationPropertyName(ForeignKey foreignKey)
+        {
+            var candidateName = FindCandidateNavigationName(foreignKey.DeclaringProperties);
+
+            return !string.IsNullOrEmpty(candidateName) ? candidateName : foreignKey.PrincipalEntityType.Name;
+        }
+        public static string GetPrincipalEndCandidateNavigationPropertyName(
+           ForeignKey foreignKey,
+           string dependentEndNavigationPropertyName)
+        {
+            var allForeignKeysBetweenDependentAndPrincipal =
+                foreignKey.PrincipalEntityType?
+                    .GetForeignKeys()
+                    .Where(fk => foreignKey.DeclaringEntityType == fk.DeclaringEntityType);
+
+            return allForeignKeysBetweenDependentAndPrincipal?.Count() > 1
+                ? foreignKey.DeclaringEntityType.Name
+                + dependentEndNavigationPropertyName
+                : foreignKey.DeclaringEntityType.Name;
+        }
+        private static string FindCandidateNavigationName(IEnumerable<Property> properties)
+        {
+            if (!properties.Any())
+            {
+                return string.Empty;
+            }
+
+            var candidateName = string.Empty;
+            var firstProperty = properties.First();
+            if (properties.Count() == 1)
+            {
+                candidateName = firstProperty.Name;
+            }
+            else
+            {
+                candidateName = FindCommonPrefix(firstProperty.Name, properties.Select(p => p.Name));
+            }
+
+            return StripId(candidateName);
         }
     }
 }

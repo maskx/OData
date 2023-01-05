@@ -25,8 +25,8 @@ namespace maskx.OData
 
     public class DynamicODataController : ODataController
     {
-        readonly DynamicOdataOptions _Options;
-        public DynamicODataController(IOptions<DynamicOdataOptions> options)
+        readonly DynamicODataOptions _Options;
+        public DynamicODataController(IOptions<DynamicODataOptions> options)
         {
             _Options = options?.Value;
         }
@@ -37,9 +37,9 @@ namespace maskx.OData
         public ActionResult Get()
         {
             var feature = HttpContext.ODataFeature();
-            var ds = _Options.GetDataSource(feature.RoutePrefix);
+            var ds = _Options.DataSources[feature.RoutePrefix];
             var options = GetQueryOptions();
-            var ri = new RequestInfo(ds.Name)
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Get,
                 QueryOptions = options,
@@ -60,10 +60,10 @@ namespace maskx.OData
         {
             var feature = HttpContext.ODataFeature();
             // todo: when key data type wrong in query string, feature.PrefixName will be null
-            var ds = _Options.GetDataSource(feature.RoutePrefix);
+            var ds = _Options.DataSources[feature.RoutePrefix];
 
             var options = GetQueryOptions();
-            var ri = new RequestInfo(ds.Name)
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Get,
                 QueryOptions = options,
@@ -84,7 +84,7 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetSimpleFunction()
         {
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
             var path = Request.ODataFeature().Path;
 
             OperationImportSegment seg = path.FirstSegment as OperationImportSegment;
@@ -97,7 +97,7 @@ namespace maskx.OData
             ODataQueryOptions queryOptions = new(queryContext, Request);
 
 
-            var ri = new RequestInfo(ds.Name)
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Function,
                 Target = seg.Identifier,
@@ -113,10 +113,9 @@ namespace maskx.OData
         /// 
         /// </summary>
         /// <returns></returns>
-        public ActionResult DoAction(ODataActionParameters parameters)
+        public ActionResult DoAction()
         {
-
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
             var path = Request.ODataFeature().Path;
             OperationImportSegment seg = path.FirstSegment as OperationImportSegment;
 
@@ -124,7 +123,7 @@ namespace maskx.OData
             string s = Request.GetRawBodyStringAsync().Result;
             if (!string.IsNullOrEmpty(s) && s != "null")
                 jobj = JObject.Parse(s);
-            var ri = new RequestInfo(ds.Name)
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Action,
                 Target = seg.Identifier,
@@ -147,9 +146,9 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetCount()
         {
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
             var options = GetQueryOptions();
-            var ri = new RequestInfo(ds.Name)
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Count,
                 QueryOptions = options,
@@ -166,7 +165,7 @@ namespace maskx.OData
         /// <returns></returns>
         public ActionResult GetFuncResultCount()
         {
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
             var options = GetQueryOptions();
             var path = Request.ODataFeature().Path;
             OperationImportSegment seg = path.FirstSegment as OperationImportSegment;
@@ -184,7 +183,7 @@ namespace maskx.OData
                 }
             }
 
-            var ri = new RequestInfo(ds.Name)
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Count,
                 Parameters = pars,
@@ -202,8 +201,8 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty");
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
-            var ri = new RequestInfo(ds.Name)
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Create,
                 Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
@@ -219,10 +218,10 @@ namespace maskx.OData
         }
         public ActionResult Delete()
         {
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
             var options = GetQueryOptions();
 
-            var ri = new RequestInfo(ds.Name)
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Delete,
                 Target = (options.Context.ElementType as EdmEntityType).Name
@@ -244,8 +243,8 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty.");
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
-            var ri = new RequestInfo(ds.Name)
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Merge,
                 Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
@@ -267,8 +266,8 @@ namespace maskx.OData
             var entity = GetEdmEntityObject();
             if (entity == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, "entity cannot be empty.");
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
-            var ri = new RequestInfo(ds.Name)
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
+            var ri = new RequestInfo()
             {
                 Method = MethodType.Replace,
                 Target = (entity.GetEdmType().Definition as EdmEntityType).Name,
@@ -313,7 +312,7 @@ namespace maskx.OData
         {
             if (Request.ContentLength == 0)
                 return null;
-            var ds = _Options.GetDataSource(Request.ODataFeature().RoutePrefix);
+            var ds = _Options.DataSources[Request.ODataFeature().RoutePrefix];
             var path = Request.ODataFeature().Path;
             IEdmTypeReference edmTypeReference = null;
             if (path.GetEdmType() is EdmCollectionType edmType)
@@ -345,7 +344,7 @@ namespace maskx.OData
         ActionResult Excute(RequestInfo ri, Func<object> func, Func<object, ActionResult> result = null)
         {
             object rtv = null;
-            var ds = _Options.GetDataSource(HttpContext.ODataFeature().RoutePrefix);
+            var ds = _Options.DataSources[HttpContext.ODataFeature().RoutePrefix];
             var options = GetQueryOptions();
             if (ds.BeforeExcute != null)
             {

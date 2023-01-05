@@ -1,16 +1,43 @@
 ﻿using maskx.Database;
-using maskx.OData.MySQL;
+using maskx.OData.Infrastructure;
 using Microsoft.OData.Edm;
 using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 
 namespace maskx.OData.SQLSource
 {
     public class MySQL : SQLBase
     {
-        public MySQL(string name, string connectionString) : base(name, connectionString) { }
-        protected override EdmPrimitiveTypeKind? GetEdmType(string dbType)
+        public override DbParameter CreateParameter( object value, List<DbParameter> pars)
+        {
+            var par = new MySqlParameter("?p" + pars.Count, value);
+            pars.Add(par);
+            return par;
+        }
+        public override DbParameter CreateParameter(Property property, object value, List<DbParameter> pars)
+        {
+            var par = new MySqlParameter("?p" + pars.Count, value)
+            {
+                MySqlDbType = (MySqlDbType)property.DbType,
+            };
+            pars.Add(par);
+            return par;
+        }
+
+        public override DbParameter CreateParameter(string name, object value)
+        {
+            var par = new MySqlParameter(name, value);
+            return par;
+        }
+
+        public override string SafeDbObject(string obj)
+        {
+            return string.Format("`{0}`", obj);
+        }
+        public MySQL(string connectionString) : base(connectionString) { }
+        protected override EdmPrimitiveTypeKind GetEdmType(string dbType)
         {
             switch (dbType.ToLower())
             {
@@ -55,7 +82,7 @@ namespace maskx.OData.SQLSource
                 case "binary":
                     return EdmPrimitiveTypeKind.Byte;
                 default:
-                    return null;
+                    return EdmPrimitiveTypeKind.None;
             }
         }
 
@@ -174,7 +201,7 @@ from information_schema.ROUTINES AS r
             yield break;
         }
 
-        protected override IEnumerable<(string ColumnName, string DataType, int Length, bool isNullable)> 
+        protected override IEnumerable<(string ColumnName, string DataType, int Length, bool isNullable)>
             GetUserDefinedType(string schema, string name)
         {
             yield break;
@@ -191,6 +218,17 @@ from information_schema.ROUTINES AS r
         {
             return new DbAccess(MySql.Data.MySqlClient.MySqlClientFactory.Instance, connectionString);
         }
+
+        protected override int GetDbType(string dbType)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override System.Data.ParameterDirection GetParameterDirection(string direction)
+        {
+            throw new NotImplementedException();
+        }
+
         protected override string CreateCommandTemplete
         {
             get
@@ -205,7 +243,5 @@ from information_schema.ROUTINES AS r
                 return "select {1} from {2}.{3} {4} order by {5} LIMIT {0} OFFSET {6}";
             }
         }
-        readonly MySQLDbUtility _MySQLDbUtility = new MySQLDbUtility();
-        protected override DbUtility _DbUtility { get { return _MySQLDbUtility; } }
     }
 }

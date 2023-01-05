@@ -6,7 +6,7 @@ namespace maskx.OData.SQLSource
 {
     public static class SelectBinder
     {
-        internal static string ParseSelect(this ODataQueryOptions options, DbUtility utility)
+        internal static string ParseSelect(this ODataQueryOptions options, SQLBase utility)
         {
             if (options.Count != null)
                 return "count(0)";
@@ -15,10 +15,9 @@ namespace maskx.OData.SQLSource
             if (options.SelectExpand.SelectExpandClause.AllSelected)
                 return "*";
             List<string> s = new List<string>();
-            PathSelectItem select = null;
             foreach (var item in options.SelectExpand.SelectExpandClause.SelectedItems)
             {
-                select = item as PathSelectItem;
+                PathSelectItem select = item as PathSelectItem;
                 if (select != null)
                 {
                     foreach (PropertySegment path in select.SelectedPath)
@@ -29,7 +28,7 @@ namespace maskx.OData.SQLSource
             }
             return string.Join(",", s);
         }
-        internal static string ParseSelect(this ExpandedNavigationSelectItem expanded, DbUtility utility)
+        internal static string ParseSelect(this ExpandedNavigationSelectItem expanded, SQLBase utility)
         {
             if (expanded.CountOption.HasValue)
                 return "count(0)";

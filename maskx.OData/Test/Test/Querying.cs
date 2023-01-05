@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Hosting;
-using System;
 using System.Net;
 using Xunit;
 
@@ -83,7 +80,7 @@ namespace Test
         [Fact]
         public void Success()
         {
-            var rtv = Common.GetContent("Tag/$count");
+            var rtv = Common.GetContent("Categories/$count");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.True(int.TryParse(rtv.Item2, out int count));
         }
@@ -94,10 +91,10 @@ namespace Test
         [Fact]
         public void SimplyExpand()
         {
-            var rtv = Common.GetJObject("AspNetUsers?$expand=AspNetUserRoles");
+            var rtv = Common.GetJObject("Orders?$expand=Order_Details");
             Assert.Equal(HttpStatusCode.OK, rtv.Item1);
             Assert.Equal(2, rtv.Item2.Count);
-            Assert.EndsWith("$metadata#AspNetUsers", rtv.Item2.Property("@odata.context").Value.ToString());
+            Assert.EndsWith("$metadata#Orders", rtv.Item2.Property("@odata.context").Value.ToString());
         }
         [Fact]
         public void NestExpand()

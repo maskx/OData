@@ -7,14 +7,12 @@ namespace maskx.OData
 {
     public class RequestInfo
     {
-        public RequestInfo(string dataSourceName)
+        public RequestInfo()
         {
             this.Message = string.Empty;
             this.StatusCode = HttpStatusCode.NotFound;
-            this.Result = true;
-            this.DataSourceName = dataSourceName;
+            this.Result = true; 
         }
-        public string DataSourceName { get; internal set; }
         /// <summary>
         /// Get,Create,Update,Replace,Delete,Replace,InvokeFunction
         /// </summary>

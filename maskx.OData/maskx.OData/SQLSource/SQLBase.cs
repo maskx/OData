@@ -1,4 +1,5 @@
 ﻿using maskx.Database;
+using maskx.OData.Extensions;
 using maskx.OData.Infrastructure;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Formatter.Value;
@@ -18,35 +19,31 @@ namespace maskx.OData.SQLSource
     public abstract class SQLBase : IDataSource
     {
         #region Constructor
-        protected SQLBase(string name, string connectionString) : this(name)
+        protected SQLBase(string connectionString)
         {
             this.ConnectionString = connectionString;
         }
-        protected SQLBase(string name)
-        {
-            this.Name = name;
-            this.Configuration = new Configuration();
-        }
+
         #endregion
 
         #region member
         public string ConnectionString { get; set; }
+        public DynamicODataOptions DynamicODataOptions { get; set; }
         private EdmComplexTypeReference _DefaultSPReturnType;
-        private readonly CSharpUtilities _CSharpUtilities = new CSharpUtilities();
-        private readonly Dictionary<string, CSharpUniqueNamer> _TableNamers = new Dictionary<string, CSharpUniqueNamer>();
-        private readonly Dictionary<string, CSharpUniqueNamer> _columnNamers = new Dictionary<string, CSharpUniqueNamer>();
+        private readonly NameSpaces _NameSpaces = new NameSpaces();
         #endregion
 
         #region private Method
         private EdmModel GetEdmModel()
         {
             var model = new EdmModel();
-            var container = new EdmEntityContainer("ns", Name);
+            var container = new EdmEntityContainer("ns", "defaultContainer");
             model.AddElement(container);
             AddEdmElement(model);
             AddEdmAction(model);
             AddTableValuedFunction(model);
             AddRelationship(model);
+
             return model;
         }
         void AddEdmElement(EdmModel model)
@@ -68,11 +65,10 @@ namespace maskx.OData.SQLSource
                 {
                     currentSchemaName = SchemaName;
                     currentTableName = TableName;
-                    string tName = GetEntityName(SchemaName, TableName);
-                    string sName = _CSharpUtilities.GenerateCSharpIdentifier(SchemaName, null, null);
-                    string entityName = Configuration.DefaultSchema == sName ? tName : string.Format("{0}.{1}", sName, tName);
-                    if (Configuration.LowerName)
-                        entityName = entityName.ToLower();
+                    string tName = _NameSpaces.GetByOriginalName(SchemaName).GetByOriginalName(TableName).Name;
+                    string sName = _NameSpaces.GetName(SchemaName);
+                    string entityName = (this as IDataSource).DynamicODataOptions.DefaultSchema == sName ? tName : string.Format("{0}.{1}", sName, tName);
+
                     IEdmEntitySet edmSet = container.FindEntitySet(entityName);
                     if (edmSet == null)
                     {
@@ -83,12 +79,10 @@ namespace maskx.OData.SQLSource
                     else
                         t = edmSet.EntityType() as EdmEntityType;
                 }
-                var et = GetEdmType(DataType);
-                if (!et.HasValue)
-                    continue;
-                if (et.Value == EdmPrimitiveTypeKind.Binary)
-                    continue;
-                EdmStructuralProperty key = t.AddStructuralProperty(GetPropertyName($"{currentSchemaName}.{currentTableName}", Configuration.LowerName ? ColumnName.ToLower() : ColumnName), et.Value, true);
+                var p = _NameSpaces.GetByOriginalName(currentSchemaName).GetByOriginalName(currentTableName).Properties.GetProperty(ColumnName);
+                p.DbType = GetDbType(DataType);
+                p.EdmPrimitiveTypeKind = GetEdmType(DataType);
+                EdmStructuralProperty key = t.AddStructuralProperty(p.Name, p.EdmPrimitiveTypeKind, true);
                 if (isKey)
                 {
                     t.AddKeys(key);
@@ -99,6 +93,8 @@ namespace maskx.OData.SQLSource
         {
             string currentName = string.Empty;
             string currentNs = string.Empty;
+            EntityCollection ns = null;
+            Entity act = null;
             List<(string Name, IEdmTypeReference Type)> pars = new();
             List<(string Name, IEdmTypeReference Type)> outParameter = new();
             EdmComplexType root = new(model.EntityContainer.Namespace, "ActionResultSet", null, false, true);
@@ -110,49 +106,55 @@ namespace maskx.OData.SQLSource
                 {
                     currentName = StoredProcedureName;
                     currentNs = SchemaName;
+                    ns = _NameSpaces.GetByOriginalName(currentNs);
+                    act = ns.GetByOriginalName(StoredProcedureName);
                 }
                 if (currentNs != SchemaName || currentName != StoredProcedureName)
                 {
                     if (outParameter.Count > 0)
                     {
-                        EdmComplexType t = new(model.EntityContainer.Namespace, string.Format("{0}_{1}_Result", currentNs, currentName), null, false, true);
-                        foreach (var p in outParameter)
+                        EdmComplexType t = new(model.EntityContainer.Namespace, $"{ns.NameSpace}_{act.Name}_Result", null, false, true);
+                        foreach (var p1 in outParameter)
                         {
-                            t.AddStructuralProperty(p.Name, p.Type);
+                            t.AddStructuralProperty(p1.Name, p1.Type);
                         }
                         model.AddElement(t);
                         var tr = new EdmComplexTypeReference(t, true);
-                        CreateAction(model, tr, currentNs, currentName, pars);
+                        CreateAction(model, tr, ns.NameSpace, act.Name, pars);
                     }
                     else
                     {
-                        CreateAction(model, _DefaultSPReturnType, currentNs, currentName, pars);
+                        CreateAction(model, _DefaultSPReturnType, ns.NameSpace, act.Name, pars);
                     }
                     currentName = StoredProcedureName;
                     currentNs = SchemaName;
+                    ns = _NameSpaces.GetByOriginalName(currentNs);
+                    act = ns.GetByOriginalName(StoredProcedureName);
                     pars.Clear();
                     outParameter.Clear();
                 }
                 if (string.IsNullOrEmpty(ParameterName))
                     continue;
-                var et = GetEdmType(ParameterDataType);
-                if (et.HasValue)
+                var p = act.Properties.GetProperty(ParameterName);
+                p.DbType = GetDbType(ParameterDataType);
+                p.EdmPrimitiveTypeKind = GetEdmType(ParameterDataType);
+                p.Direction = GetParameterDirection(ParemeterMode);
+                if (p.EdmPrimitiveTypeKind != EdmPrimitiveTypeKind.None)
                 {
-                    var t = EdmCoreModel.Instance.GetPrimitive(et.Value, true);
-                    var pname = Configuration.LowerName ? ParameterName.ToLower() : ParameterName;
-                    pars.Add((pname, t));
+                    var t = EdmCoreModel.Instance.GetPrimitive(p.EdmPrimitiveTypeKind, true);
+                    pars.Add((p.Name, t));
                     if (ParemeterMode.EndsWith("OUT", StringComparison.InvariantCultureIgnoreCase))
-                        outParameter.Add((pname, t));
+                        outParameter.Add((p.Name, t));
                 }
                 else if (!string.IsNullOrEmpty(UserDefinedTypeName))//UDT
                 {
                     var udt = BuildUserDefinedType(UserDefinedTypeSchema, UserDefinedTypeName);
-                    pars.Add((Configuration.LowerName ? ParameterName.ToLower() : ParameterName, udt));
+                    pars.Add((p.Name, udt));
                 }
             }
             if (outParameter.Count > 0)
             {
-                EdmComplexType t = new(model.EntityContainer.Namespace, string.Format("{0}_{1}_Result", currentNs, currentName), null, false, true);
+                EdmComplexType t = new(model.EntityContainer.Namespace, $"{ns.NameSpace}_{act.Name}_Result", null, false, true);
                 foreach (var p in outParameter)
                 {
                     t.AddStructuralProperty(p.Name, p.Type);
@@ -160,55 +162,62 @@ namespace maskx.OData.SQLSource
                 outParameter.Clear();
                 model.AddElement(t);
                 var tr = new EdmComplexTypeReference(t, true);
-                CreateAction(model, tr, currentNs, currentName, pars);
+                CreateAction(model, tr, ns.NameSpace, act.Name, pars);
             }
             else
-                CreateAction(model, _DefaultSPReturnType, currentNs, currentName, pars);
+                CreateAction(model, _DefaultSPReturnType, ns.NameSpace, act.Name, pars);
 
         }
 
-        private EdmAction CreateAction(EdmModel model, EdmComplexTypeReference returType, string SchemaName, string StoredProcedureName, List<(string name, IEdmTypeReference type)> pars)
+        private EdmAction CreateAction(EdmModel model, EdmComplexTypeReference returType, string nameSpace, string actionName, List<(string name, IEdmTypeReference type)> pars)
         {
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
-            var action = new EdmAction(SchemaName, StoredProcedureName, returType, false, null);
+            var action = new EdmAction(nameSpace, actionName, returType, false, null);
             foreach (var (name, type) in pars)
             {
                 //remove the prefix such as @ or ?
                 string pName = name.Remove(0, 1);
-                if (Configuration.LowerName)
-                    pName = pName.ToLower();
+
                 action.AddParameter(pName, type);
             }
             model.AddElement(action);
-            string entityName = action.Namespace == Configuration.DefaultSchema ? action.Name : string.Format("{0}.{1}", action.Namespace, action.Name);
-            if (Configuration.LowerName)
-                entityName = entityName.ToLower();
+            string entityName = action.Namespace == DynamicODataOptions.DefaultSchema ? action.Name : $"{action.Namespace}.{action.Name}";
+
             container.AddActionImport(entityName, action, null);
             return action;
         }
 
         EdmComplexTypeReference BuildUserDefinedType(string schema, string name)
         {
-            EdmComplexType root = new(schema, name);
+            var ns = _NameSpaces.GetByOriginalName(schema);
+            var entity = ns.GetByOriginalName(name);
+            EdmComplexType root = new(ns.NameSpace, entity.Name);
             foreach (var (ColumnName, DataType, _, _) in GetUserDefinedType(schema, name))
             {
                 var et = GetEdmType(DataType);
-                if (et.HasValue)
+                if (et != EdmPrimitiveTypeKind.None)
                 {
-                    root.AddStructuralProperty(Configuration.LowerName ? ColumnName.ToLower() : ColumnName, et.Value);
+                    var p = entity.Properties.GetProperty(ColumnName);
+                    p.DbType = GetDbType(DataType);
+                    p.EdmPrimitiveTypeKind = GetEdmType(DataType);
+                    root.AddStructuralProperty(p.Name, p.EdmPrimitiveTypeKind);
                 }
             }
             return new EdmComplexTypeReference(root, false);
         }
         EdmCollectionTypeReference BuildTableValueType(EdmModel model, string schema, string name)
         {
-            EdmComplexType root = new(schema, String.Format("{0}_RtvType", name));
+            var ns = _NameSpaces.GetByOriginalName(schema);
+            var entity = ns.GetByOriginalName(name);
+            EdmComplexType root = new(schema, $"{entity.Name}_RtvType");
             foreach (var (ColumnName, DataType, _, _) in GetTableValueType(schema, name))
             {
-                var et = GetEdmType(DataType);
-                if (et.HasValue)
+                var p = entity.Properties.GetProperty(ColumnName);
+                p.EdmPrimitiveTypeKind = GetEdmType(DataType);
+                p.DbType = GetDbType(DataType);
+                if (p.EdmPrimitiveTypeKind != EdmPrimitiveTypeKind.None)
                 {
-                    root.AddStructuralProperty(Configuration.LowerName ? ColumnName.ToLower() : ColumnName, et.Value);
+                    root.AddStructuralProperty(p.Name, p.EdmPrimitiveTypeKind);
                 }
             }
             var etr = new EdmComplexTypeReference(root, true);
@@ -222,103 +231,116 @@ namespace maskx.OData.SQLSource
             EdmEntityContainer container = model.EntityContainer as EdmEntityContainer;
             string currentName = string.Empty;
             string currentNS = string.Empty;
+            EntityCollection ns = null;
+            Entity f = null;
             EdmFunction func = null;
             foreach (var (SchemaName, FunctionName, ParameterName, ParameterDataType, UserDefinedTypeSchema, UserDefinedTypeName, MaxLength, NumericScale) in GetFunctions())
             {
                 if (string.IsNullOrEmpty(currentName) || currentName != FunctionName || currentNS != SchemaName)
                 {
-                    string entityName = SchemaName == Configuration.DefaultSchema ? FunctionName : string.Format("{0}.{1}", SchemaName, FunctionName);
-                    if (Configuration.LowerName)
-                        entityName = entityName.ToLower();
+                    ns = _NameSpaces.GetByOriginalName(SchemaName);
+                    f = ns.GetByOriginalName(FunctionName);
+                    string entityName = ns.NameSpace == DynamicODataOptions.DefaultSchema ? f.Name : $"{ns.NameSpace}.{f.Name}";
+
                     var t = BuildTableValueType(model, SchemaName, FunctionName);
-                    func = new EdmFunction(SchemaName, FunctionName, t, false, null, true);
+                    func = new EdmFunction(ns.NameSpace, f.Name, t, false, null, true);
                     container.AddFunctionImport(entityName, func, null, true);
                     model.AddElement(func);
                 }
                 if (string.IsNullOrEmpty(ParameterDataType))
                     continue;
-                var et = GetEdmType(ParameterDataType);
-                if (et.HasValue)
+                var par = f.Properties.GetProperty(ParameterName);
+                par.EdmPrimitiveTypeKind = GetEdmType(ParameterDataType);
+                par.DbType = GetDbType(ParameterDataType);
+                if (par.EdmPrimitiveTypeKind != EdmPrimitiveTypeKind.None)
                 {
-                    var t = EdmCoreModel.Instance.GetPrimitive(et.Value, true);
-                    var p = ParameterName.Remove(0, 1);
-
-                    func.AddParameter(Configuration.LowerName ? p.ToLower() : p, t);
+                    var t = EdmCoreModel.Instance.GetPrimitive(par.EdmPrimitiveTypeKind, true);
+                    func.AddParameter(par.Name, t);
                 }
                 else if (string.IsNullOrEmpty(UserDefinedTypeName))//UDT
                 {
                     var udt = BuildUserDefinedType(UserDefinedTypeSchema, UserDefinedTypeName);
-                    func.AddParameter(Configuration.LowerName ? ParameterName.ToLower() : ParameterName, udt);
+                    func.AddParameter(par.Name, udt);
                 }
             }
 
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="model"></param>
         void AddRelationship(EdmModel model)
         {
             string fk = string.Empty;
-
-            EdmEntityType parent = null;
-            EdmEntityType refrenced = null;
-            List<IEdmStructuralProperty> principalProperties = null;
-            List<IEdmStructuralProperty> dependentProperties = null;
-
+            Entity p_entity = null;
+            Entity r_entity = null;
+            ForeignKey foreignKey = null;
+            List<ForeignKey> foreignKeys = new List<ForeignKey>();
             foreach (var (ForeignKeyName, ParentSchemaName, ParentName, ParentColumnName, ReferencedName, ReferencedSchemaName, ReferencedColumnName) in GetRelationship())
             {
                 if (fk != ForeignKeyName)
                 {
-                    if (parent != null)
-                    {
-                        CreatReference(model, parent, refrenced, principalProperties, dependentProperties);
-                    }
-                    parent = model.FindDeclaredType(GetEntityTypeName(ParentSchemaName, ParentName)) as EdmEntityType;
-                    refrenced = model.FindDeclaredType(GetEntityTypeName(ReferencedSchemaName, ReferencedName)) as EdmEntityType;
-
-                    principalProperties = new List<IEdmStructuralProperty>();
-                    dependentProperties = new List<IEdmStructuralProperty>();
+                    if (p_entity != null)
+                        p_entity.Properties.AddForeignKey(foreignKey);
+                    foreignKey = new ForeignKey(ForeignKeyName);
+                    var p_ns = _NameSpaces.GetByOriginalName(ParentSchemaName);
+                    p_entity = p_ns.GetByOriginalName(ParentName);
+                    var r_ns = _NameSpaces.GetByOriginalName(ReferencedSchemaName);
+                    r_entity = r_ns.GetByOriginalName(ReferencedName);
+                    foreignKey.DeclaringEntityType = r_entity;
                     fk = ForeignKeyName;
+                    foreignKeys.Add(foreignKey);
                 }
-                principalProperties.Add(parent.FindProperty(Configuration.LowerName ? ParentColumnName.ToLower() : ParentColumnName) as IEdmStructuralProperty);
-                dependentProperties.Add(refrenced.FindProperty(Configuration.LowerName ? ReferencedColumnName.ToLower() : ReferencedColumnName) as IEdmStructuralProperty);
+                foreignKey.PrincipalProperties.Add(p_entity.Properties.GetProperty(ParentColumnName));
+                foreignKey.DeclaringProperties.Add(r_entity.Properties.GetProperty(ReferencedColumnName));
             }
-            if (parent != null)
-                CreatReference(model, parent, refrenced, principalProperties, dependentProperties);
-
-        }
-
-        private void CreatReference(EdmModel model, EdmEntityType parent, EdmEntityType refrenced, List<IEdmStructuralProperty> principalProperties, List<IEdmStructuralProperty> dependentProperties)
-        {
-            var parentEntityName = parent.Namespace == Configuration.DefaultSchema ? parent.Name : string.Format("{0}.{1}", parent.Namespace, parent.Name);
-            var referencedEntityName = refrenced.Namespace == Configuration.DefaultSchema ? refrenced.Name : string.Format("{0}.{1}", refrenced.Namespace, refrenced.Name);
-            if (Configuration.LowerName)
+            if (p_entity != null)
+                p_entity.Properties.AddForeignKey(foreignKey);
+            foreach (var key in foreignKeys)
             {
-                parentEntityName = parentEntityName.ToLower();
-                referencedEntityName = referencedEntityName.ToLower();
+                CreateReference(model, key);
             }
-
+        }
+        private void CreateReference(EdmModel model, ForeignKey foreignKey)
+        {
+            var parent = model.FindDeclaredType(foreignKey.PrincipalEntityType.FullName) as EdmEntityType;
+            var reference = model.FindDeclaredType(foreignKey.DeclaringEntityType.FullName) as EdmEntityType;
             var parentNav = new EdmNavigationPropertyInfo
             {
-                Name = parent.Name,
+                Name = foreignKey.PrincipalName,
                 TargetMultiplicity = EdmMultiplicity.Many,
                 Target = parent
             };
+
+            parentNav.PrincipalProperties = foreignKey.PrincipalProperties.ToEdmProperties(parent);
+            parentNav.DependentProperties = foreignKey.DeclaringProperties.ToEdmProperties(reference);
+            parent.AddUnidirectionalNavigation(parentNav);
+
+            //////////////////////////////
+            ///
+ 
+            //var parent = model.FindDeclaredType(foreignKey.PrincipalEntityType.FullName) as EdmEntityType;
+            //var reference = model.FindDeclaredType(foreignKey.DeclaringEntityType.FullName) as EdmEntityType;
+
+            //var parentNav = new EdmNavigationPropertyInfo
+            //{
+            //    Name = foreignKey.PrincipalName,
+            //    TargetMultiplicity = EdmMultiplicity.Many,
+            //    Target = parent
+            //};
             var referencedNav = new EdmNavigationPropertyInfo
             {
-                Name = refrenced.Name,
+                Name = foreignKey.Name,
                 TargetMultiplicity = EdmMultiplicity.Many
             };
 
-            parentNav.PrincipalProperties = principalProperties;
-            parentNav.DependentProperties = dependentProperties;
+            //parentNav.PrincipalProperties = foreignKey.PrincipalProperties.ToEdmProperties(parent);
+            //parentNav.DependentProperties = foreignKey.DeclaringProperties.ToEdmProperties(reference);
 
-            var np = refrenced.AddBidirectionalNavigation(parentNav, referencedNav);
-            var parentSet = model.EntityContainer.FindEntitySet(parentEntityName) as EdmEntitySet;
-            var referenceSet = model.EntityContainer.FindEntitySet(referencedEntityName) as EdmEntitySet;
+            var np = reference.AddBidirectionalNavigation(parentNav, referencedNav);
+            var parentSet = model.EntityContainer.FindEntitySet(foreignKey.PrincipalEntityType.FullName) as EdmEntitySet;
+            var referenceSet = model.EntityContainer.FindEntitySet(foreignKey.DeclaringEntityType.FullName) as EdmEntitySet;
             referenceSet.AddNavigationTarget(np, parentSet);
-        }
-
-        string BuildNavigationName()
-        {
-            return string.Empty;
         }
 
         #endregion
@@ -387,11 +409,12 @@ namespace maskx.OData.SQLSource
             string DataType,
             int Length,
             bool isNullable)> GetTableValueType(string schema, string name);
-        protected abstract EdmPrimitiveTypeKind? GetEdmType(string dbType);
+        protected abstract EdmPrimitiveTypeKind GetEdmType(string dbType);
+        protected abstract int GetDbType(string dbType);
+        protected abstract ParameterDirection GetParameterDirection(string direction);
         #endregion
 
         #region IDataSource
-        public Configuration Configuration { get; set; }
 
         public string Name { get; private set; }
         EdmModel _EdmModel;
@@ -458,8 +481,8 @@ namespace maskx.OData.SQLSource
             {
                 var par = db.ExecuteReader(
                     string.Format("{0}.{1}",
-                        _DbUtility.SafeDbObject(action.Namespace),
-                        _DbUtility.SafeDbObject(action.Name)),
+                        SafeDbObject(_NameSpaces.GetName(action.Namespace)),
+                        SafeDbObject(_NameSpaces[action.Namespace][action.Name].OriginalName)),
                     (reader, resultSet) =>
                     {
                         if (resultSet != resultSetIndex)
@@ -495,42 +518,48 @@ namespace maskx.OData.SQLSource
             DbParameter dbParameter;
             foreach (var p in action.Parameters)
             {
+
                 if (parameterValues.TryGetValue(p.Name, out JToken token))
                 {
                     if (p.Type.Definition.TypeKind == EdmTypeKind.Complex)
                     {
                         DataTable dt = new();
                         var c = p.Type.AsComplex();
+                        var ss = p.Type.Definition as EdmComplexType;
+                        var n = _NameSpaces[ss.Namespace][ss.Name];
                         foreach (var item in c.StructuralProperties())
                         {
-                            dt.Columns.Add(item.Name, item.Type.PrimitiveKind().ToClrType());
+                            dt.Columns.Add(n.Properties[item.Name].OriginalName, item.Type.PrimitiveKind().ToClrType());
                         }
+                        var colName = "";
                         foreach (var item in token)
                         {
                             DataRow dr = dt.NewRow();
                             foreach (JProperty col in item)
                             {
-                                if (!dt.Columns.Contains(col.Name))
+                                colName = n.Properties[col.Name]?.OriginalName;
+                                if (string.IsNullOrEmpty(colName) || !dt.Columns.Contains(colName))
                                     continue;
-                                Type colType = dt.Columns[col.Name].DataType;
+                                Type colType = dt.Columns[colName].DataType;
                                 if (colType == typeof(Boolean))
                                 {
-                                    dr.SetField(col.Name, col.Value.ToString() != "0");
+                                    dr.SetField(colName, col.Value.ToString() != "0");
                                 }
                                 else
-                                    dr.SetField(col.Name, col.Value.ToString().ChangeType(colType));
+                                    dr.SetField(colName, col.Value.ToString().ChangeType(colType));
                             }
                             dt.Rows.Add(dr);
                         }
-                        dbParameter = _DbUtility.CreateParameter(p.Name, dt);
+                        // todo: get original parameter name
+                        dbParameter = CreateParameter(p.Name, dt);
                         pars.Add(dbParameter);
                     }
                     else
                     {
                         if (string.IsNullOrEmpty(token.ToString()))
-                            dbParameter = _DbUtility.CreateParameter(p.Name, DBNull.Value);
+                            dbParameter = CreateParameter(p.Name, DBNull.Value);
                         else
-                            dbParameter = _DbUtility.CreateParameter(p.Name, token.ToString().ChangeType(p.Type.PrimitiveKind()));
+                            dbParameter = CreateParameter(p.Name, token.ToString().ChangeType(p.Type.PrimitiveKind()));
                         pars.Add(dbParameter);
                     }
                 }
@@ -545,7 +574,7 @@ namespace maskx.OData.SQLSource
                     }
                     else
                     {
-                        dbParameter = _DbUtility.CreateParameter(outp.Name, DBNull.Value);
+                        dbParameter = CreateParameter(outp.Name, DBNull.Value);
                         dbParameter.Direction = ParameterDirection.Output;
                         pars.Add(dbParameter);
                     }
@@ -570,7 +599,7 @@ namespace maskx.OData.SQLSource
                     EdmEntityObject entity = new(entityType);
                     for (int i = 0; i < reader.FieldCount; i++)
                     {
-                        reader.SetEntityPropertyValue(i, entity, Configuration.LowerName);
+                        reader.SetEntityPropertyValue(i, entity);
                     }
                     if (needExpand)
                     {
@@ -721,23 +750,27 @@ namespace maskx.OData.SQLSource
         #endregion
 
         protected abstract DbAccess CreateDbAccess(string connectionString);
-        protected abstract DbUtility _DbUtility { get; }
 
         #region method for build SQL command string
         protected virtual string BuildExpandQueryCmd(EdmEntityObject edmEntity, ExpandedNavigationSelectItem expanded, List<DbParameter> pars)
         {
             var entityType = expanded.NavigationSource.EntityType();
+            var ns = _NameSpaces[entityType.Namespace];
+            var ent = ns[entityType.Name];
             var wp = new List<string>();
+            var sourceEntityType = edmEntity.ActualEdmType as IEdmEntityType;
+            var sourceEnt = _NameSpaces[sourceEntityType.Namespace][sourceEntityType.Name];
             foreach (NavigationPropertySegment item2 in expanded.PathToNavigationProperty)
             {
-                foreach (var p in item2.NavigationProperty.Partner.ReferentialConstraint.PropertyPairs)
+                foreach (var p in item2.NavigationProperty.ReferentialConstraint.PropertyPairs)
                 {
                     edmEntity.TryGetPropertyValue(p.DependentProperty.Name, out object v);
-                    var par = _DbUtility.CreateParameter(v, pars);
-                    wp.Add(string.Format("{0}={1}", _DbUtility.SafeDbObject(p.PrincipalProperty.Name), par.ParameterName));
+                    var par = CreateParameter(sourceEnt.Properties[p.DependentProperty.Name] as Property, v, pars);
+                    pars.Add(par);
+                    wp.Add(string.Format("{0}={1}", SafeDbObject(ent.Properties[p.PrincipalProperty.Name].OriginalName), par.ParameterName));
                 }
             }
-            string where = " where " + string.Join("and", wp) + expanded.ParseFilter(pars, _DbUtility);
+            string where = " where " + string.Join("and", wp) + expanded.ParseFilter(ent, this, pars);
             string cmdTemplete;
             //0:Top,1:Select,2:Schema,3:Table,4:where,5:orderby,6:skip
             if (expanded.CountOption.HasValue)
@@ -748,20 +781,20 @@ namespace maskx.OData.SQLSource
                 cmdTemplete = QueryTopCommandTemplete;
             else
                 cmdTemplete = QueryCommandTemplete;
-            string order = expanded.ParseOrderBy(_DbUtility);
+            string order = expanded.ParseOrderBy(this);
             if (string.IsNullOrEmpty(order))
             {
                 if (entityType.DeclaredKey.Any())
-                    order = _DbUtility.SafeDbObject(entityType.DeclaredKey.First().Name);
+                    order = SafeDbObject(ent.Properties[entityType.DeclaredKey.First().Name].OriginalName);
                 else
-                    order = _DbUtility.SafeDbObject(entityType.DeclaredProperties.First().Name);
+                    order = SafeDbObject(ent.Properties[entityType.DeclaredProperties.First().Name].OriginalName);
 
             }
             return string.Format(cmdTemplete
                 , expanded.TopOption.HasValue ? expanded.TopOption.Value.ToString() : string.Empty
-                , expanded.ParseSelect(_DbUtility)
-                , entityType.Namespace
-                , entityType.Name
+                , expanded.ParseSelect(this)
+                , SafeDbObject(ns.Schema)
+                , SafeDbObject(ent.OriginalName)
                 , where
                 , order
                 , expanded.SkipOption.HasValue ? expanded.SkipOption.Value.ToString() : string.Empty);
@@ -769,41 +802,45 @@ namespace maskx.OData.SQLSource
         protected virtual string QueryCountCommandTemplete { get { return "select {0} {1} from {2}.{3} {4}"; } }
         protected virtual string QueryPagingCommandTemplete { get { return "select {1} from {2}.{3} {4} order by {5} OFFSET {6} rows FETCH NEXT {0} rows only"; } }
         protected virtual string QueryTopCommandTemplete { get { return "select top {0} {1} from {2}.{3} {4} order by {5}"; } }
-        protected virtual String QueryCommandTemplete { get { return "select {0} {1} from {2}.{3} {4} order by {5}"; } }
+        protected virtual string QueryCommandTemplete { get { return "select {0} {1} from {2}.{3} {4} order by {5}"; } }
         protected virtual string BuildQueryCmd(ODataQueryOptions options, List<DbParameter> pars)
         {
             var cxt = options.Context;
-            string ns, name, order, cmdTemplete;
-            order = options.ParseOrderBy(_DbUtility);
+            Entity entity;
+
+            string name, order, cmdTemplete;
+            order = options.ParseOrderBy(this);
             if (cxt.Path.FirstSegment is OperationImportSegment ois)
             {
                 var func = ois.OperationImports.First().Operation;
+                entity = _NameSpaces[func.Namespace][func.Name];
                 DbParameter par;
                 List<DbParameter> funcPList = new();
+
                 foreach (var item in ois.Parameters)
                 {
-                    par = _DbUtility.CreateParameter((item.Value as ConstantNode).Value, pars);
+                    par = CreateParameter(entity.Properties[item.Name] as Property, (item.Value as ConstantNode).Value, pars);
+                    pars.Add(par);
                     funcPList.Add(par);
                 }
-                ns = func.Namespace;
-                name = string.Format("{0}({1})", _DbUtility.SafeDbObject(func.Name), string.Join(",", funcPList.ConvertAll<string>(p => p.ParameterName)));
+
+                name = $"{SafeDbObject(entity.Schema)}.{SafeDbObject(entity.OriginalName)}({string.Join(",", funcPList.ConvertAll<string>(p => p.ParameterName))})";
                 if (string.IsNullOrEmpty(order))
                 {
                     var entityType = cxt.ElementType as EdmComplexType;
-                    order = _DbUtility.SafeDbObject(entityType.DeclaredProperties.First().Name);
+                    order = SafeDbObject(entityType.DeclaredProperties.First().Name);
                 }
             }
             else
             {
                 var entityType = cxt.ElementType as EdmEntityType;
-                ns = _DbUtility.SafeDbObject(entityType.Namespace);
-                name = _DbUtility.SafeDbObject(entityType.Name);
+                entity = _NameSpaces[entityType.Namespace][entityType.Name];
                 if (string.IsNullOrEmpty(order))
                 {
                     if (entityType.DeclaredKey.Any())
-                        order = _DbUtility.SafeDbObject(entityType.DeclaredKey.First().Name);
+                        order = SafeDbObject(entity.Properties[entityType.DeclaredKey.First().Name].OriginalName);
                     else
-                        order = _DbUtility.SafeDbObject(entityType.DeclaredProperties.First().Name);
+                        order = SafeDbObject(entity.Properties[entityType.DeclaredProperties.First().Name].OriginalName);
                 }
             }
             //0:Top,1:Select,2:Schema,3:Table,4:where,5:orderby,6:skip
@@ -816,10 +853,10 @@ namespace maskx.OData.SQLSource
             else cmdTemplete = QueryCommandTemplete;
             return string.Format(cmdTemplete
                 , options.Top?.RawValue
-                , options.ParseSelect(_DbUtility)
-                , ns
-                , name
-                , options.ParseFilter(pars, _DbUtility)
+                , options.ParseSelect(this)
+                , SafeDbObject(entity.Schema)
+                , SafeDbObject(entity.OriginalName)
+                , options.ParseFilter(entity, this, pars)
                 , order
                 , options.Skip?.RawValue);
         }
@@ -832,16 +869,21 @@ namespace maskx.OData.SQLSource
 
             List<string> cols = new();
             List<string> ps = new();
+            var schema = _NameSpaces.GetOriginalName(entityType.Namespace);
+            var ent = _NameSpaces[entityType.Namespace][entityType.Name];
             foreach (var p in (entity as Delta).GetChangedPropertyNames())
             {
-                entity.TryGetPropertyValue(p, out object v);
-                cols.Add(_DbUtility.SafeDbObject(p));
-                var par = _DbUtility.CreateParameter(v, pars);
-                ps.Add(par.ParameterName);
+                if (entity.TryGetPropertyValue(p, out object v))
+                {
+                    var pro = ent.Properties[p];
+                    cols.Add(SafeDbObject(pro.OriginalName));
+                    var par = CreateParameter(pro as Property, v, pars);
+                    ps.Add(par.ParameterName);
+                }
             }
             return string.Format(CreateCommandTemplete,
-               _DbUtility.SafeDbObject(entityType.Namespace),
-               _DbUtility.SafeDbObject(entityType.Name),
+               SafeDbObject(schema),
+               SafeDbObject(ent.OriginalName),
                 string.Join(", ", cols),
                 string.Join(", ", ps));
         }
@@ -851,13 +893,15 @@ namespace maskx.OData.SQLSource
         {
             var cxt = options.Context;
             var entityType = cxt.ElementType as EdmEntityType;
+            var ns = _NameSpaces[entityType.Namespace];
+            var ent = _NameSpaces[entityType.Namespace][entityType.Name];
             var keyDefine = entityType.DeclaredKey.First();
-            var par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+            var par = CreateParameter(ent.Properties[keyDefine.Name] as Property, key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
 
             return string.Format(QueryByKeyCommandTemplete
-                , options.ParseSelect(_DbUtility)
-                , _DbUtility.SafeDbObject(entityType.Name)
-                , _DbUtility.SafeDbObject(keyDefine.Name),
+                , options.ParseSelect(this)
+                , $"{SafeDbObject(ns.Schema)}.{SafeDbObject(ent.OriginalName)}"
+                , SafeDbObject(ent.Properties[keyDefine.Name].OriginalName),
                 par.ParameterName);
         }
         protected virtual string DeleteCommandTemplete { get { return "delete from  {0}.{1} where {2}={3};"; } }
@@ -865,12 +909,14 @@ namespace maskx.OData.SQLSource
         protected virtual string BuildDeleteCmd(string key, IEdmType elementType, List<DbParameter> pars)
         {
             var entityType = elementType as EdmEntityType;
+            var ns = _NameSpaces[entityType.Namespace];
+            var ent = _NameSpaces[entityType.Namespace][entityType.Name];
             var keyDefine = entityType.DeclaredKey.First();
-            var par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+            var par = CreateParameter(ent.Properties[keyDefine.Name] as Property, key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
             return string.Format(DeleteCommandTemplete,
-               _DbUtility.SafeDbObject(entityType.Namespace),
-               _DbUtility.SafeDbObject(entityType.Name),
-               _DbUtility.SafeDbObject(keyDefine.Name),
+               SafeDbObject(ns.Schema),
+               SafeDbObject(ent.OriginalName),
+               SafeDbObject(ent.Properties[keyDefine.Name].OriginalName),
                par.ParameterName);
         }
         protected virtual string ReplaceCommandTemplete { get { return "update {0}.{1} set {2} where {3}={4} "; } }
@@ -878,6 +924,8 @@ namespace maskx.OData.SQLSource
         protected virtual string BuildReplaceCmd(string key, IEdmEntityObject entity, List<DbParameter> pars)
         {
             var entityType = entity.GetEdmType().Definition as EdmEntityType;
+            var ns = _NameSpaces[entityType.Namespace];
+            var ent = _NameSpaces[entityType.Namespace][entityType.Name];
             var keyDefine = entityType.DeclaredKey.First();
             List<string> cols = new();
             DbParameter par;
@@ -887,23 +935,29 @@ namespace maskx.OData.SQLSource
                 if (entity.TryGetPropertyValue(p.Name, out object v))
                 {
                     if (keyDefine.Name == p.Name) continue;
-                    par = _DbUtility.CreateParameter(v, pars);
-                    cols.Add(string.Format("{0}={1}", _DbUtility.SafeDbObject(p.Name), par.ParameterName));
+                    par = CreateParameter(ent.Properties[p.Name] as Property, v, pars);
+                    pars.Add(par);
+                    cols.Add(string.Format("{0}={1}", SafeDbObject((ent.Properties[p.Name] as Property).OriginalName), par.ParameterName));
                 }
             }
-            par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+            par = CreateParameter(ent.Properties[key] as Property, key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+            pars.Add(par);
 
             return string.Format(ReplaceCommandTemplete,
-                _DbUtility.SafeDbObject(entityType.Namespace),
-                _DbUtility.SafeDbObject(entityType.Name),
+                SafeDbObject(ns.Schema),
+                SafeDbObject(ent.OriginalName),
                 string.Join(",", cols),
-               _DbUtility.SafeDbObject(keyDefine.Name),
+               SafeDbObject(ent.Properties[keyDefine.Name].OriginalName),
                 par.ParameterName);
         }
         protected virtual string MergeCommandTemplete { get { return "update {0}.{1} set {2} where {3}={4} "; } }
+
+
         protected virtual string BuildMergeCmd(string key, IEdmEntityObject entity, List<DbParameter> pars)
         {
             var entityType = entity.GetEdmType().Definition as EdmEntityType;
+            var ns = _NameSpaces[entityType.Namespace];
+            var ent = ns[entityType.Name];
             var keyDefine = entityType.DeclaredKey.First();
             List<string> cols = new();
             DbParameter par;
@@ -911,16 +965,18 @@ namespace maskx.OData.SQLSource
             {
                 if (entity.TryGetPropertyValue(p, out object v))
                 {
-                    par = _DbUtility.CreateParameter(v, pars);
-                    cols.Add(string.Format("{0}={1}", _DbUtility.SafeDbObject(p), par.ParameterName));
+                    par = CreateParameter(ent.Properties[p] as Property, v, pars);
+
+                    cols.Add(string.Format("{0}={1}", SafeDbObject(p), par.ParameterName));
                 }
             }
-            par = _DbUtility.CreateParameter(key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+            par = CreateParameter(ent.Properties[keyDefine.Name] as Property, key.ChangeType(keyDefine.Type.PrimitiveKind()), pars);
+
             return string.Format(MergeCommandTemplete,
-               _DbUtility.SafeDbObject(entityType.Namespace),
-               _DbUtility.SafeDbObject(entityType.Name),
+               SafeDbObject(ns.Schema),
+               SafeDbObject(ent.OriginalName),
                 string.Join(", ", cols),
-               _DbUtility.SafeDbObject(keyDefine.Name),
+               SafeDbObject(ent.Properties[keyDefine.Name].OriginalName),
                 par.ParameterName);
         }
         private void Expand(EdmEntityObject edmEntity, SelectExpandClause expandClause)
@@ -961,28 +1017,9 @@ namespace maskx.OData.SQLSource
 
         #endregion
 
-
-        private string GetPropertyName(string table, string column)
-        {
-            if (!_columnNamers.TryGetValue(table, out CSharpUniqueNamer columnNamer))
-            {
-                columnNamer = new CSharpUniqueNamer();
-                _columnNamers.Add(table, columnNamer);
-            }
-            return _columnNamers[table].GetName(column);
-        }
-        private string GetEntityName(string schema, string table)
-        {
-            if (!_TableNamers.TryGetValue(schema, out CSharpUniqueNamer cSharpNamer))
-            {
-                cSharpNamer = new CSharpUniqueNamer();
-                _TableNamers.Add(schema, cSharpNamer);
-            }
-            return cSharpNamer.GetName(table);
-        }
-        private string GetEntityTypeName(string schema, string table)
-        {
-            return $"{_CSharpUtilities.GenerateCSharpIdentifier(schema, null, null)}.{GetEntityName(schema, table)}";
-        }
+        public abstract string SafeDbObject(string obj);
+        public abstract DbParameter CreateParameter(Property property, object value, List<DbParameter> pars);
+        public abstract DbParameter CreateParameter(object value, List<DbParameter> pars);
+        public abstract DbParameter CreateParameter(string name, object value);
     }
 }

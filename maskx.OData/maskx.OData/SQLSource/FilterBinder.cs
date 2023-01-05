@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.OData.Query;
+﻿using maskx.OData.Infrastructure;
+using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using System;
@@ -10,66 +11,66 @@ namespace maskx.OData.SQLSource
 {
     public static class FilterBinder
     {
-        public static string ParseFilter(this ODataQueryOptions options, List<DbParameter> pars, DbUtility dbUtility)
+        public static string ParseFilter(this ODataQueryOptions options, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
             if (options.Filter == null || options.Filter.FilterClause == null)
                 return string.Empty;
-            string where = ParseFilter(options.Filter.FilterClause, pars, dbUtility);
+            string where = ParseFilter(options.Filter.FilterClause, entity, dbUtility, pars);
             if (!string.IsNullOrEmpty(where))
                 where = " where " + where;
             return where;
         }
-        public static string ParseFilter(this ExpandedNavigationSelectItem expanded, List<DbParameter> pars, DbUtility dbUtility)
+        public static string ParseFilter(this ExpandedNavigationSelectItem expanded, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
             if (expanded == null || expanded.FilterOption == null)
                 return string.Empty;
-            string where = ParseFilter(expanded.FilterOption, pars, dbUtility);
+            string where = ParseFilter(expanded.FilterOption, entity, dbUtility, pars);
             if (string.IsNullOrEmpty(where))
                 return string.Empty;
             return string.Format(" and ({0}) ", where);
         }
-        public static string ParseFilter(this FilterClause filterClause, List<DbParameter> pars, DbUtility dbUtility)
+        public static string ParseFilter(this FilterClause filterClause, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
             if (filterClause == null || filterClause.Expression == null)
                 return string.Empty;
-            return Bind(filterClause.Expression, pars, dbUtility);
+            return Bind(filterClause.Expression, entity, dbUtility, pars);
         }
 
 
-        internal static string Bind(QueryNode node, List<DbParameter> pars, DbUtility dbUtility)
+        internal static string Bind(QueryNode node, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
             switch (node.Kind)
             {
                 case QueryNodeKind.None:
                     break;
                 case QueryNodeKind.Constant:
-                    return BindConstantNode(node as ConstantNode, pars, dbUtility);
+                    return BindConstantNode(node as ConstantNode, entity, pars, dbUtility);
                 case QueryNodeKind.Convert:
-                    return BindConvertNode(node as ConvertNode, pars, dbUtility);
+                    return BindConvertNode(node as ConvertNode, entity, dbUtility, pars);
                 case QueryNodeKind.NonResourceRangeVariableReference:
                     return BindRangeVariable((node as NonResourceRangeVariableReferenceNode).RangeVariable, dbUtility);
                 case QueryNodeKind.BinaryOperator:
-                    return BindBinaryOperatorNode(node as BinaryOperatorNode, pars, dbUtility);
+                    return BindBinaryOperatorNode(node as BinaryOperatorNode, entity, dbUtility, pars);
                 case QueryNodeKind.UnaryOperator:
-                    return BindUnaryOperatorNode(node as UnaryOperatorNode, pars, dbUtility);
+                    return BindUnaryOperatorNode(node as UnaryOperatorNode, entity, dbUtility, pars);
                 case QueryNodeKind.SingleValuePropertyAccess:
                     return BindPropertyAccessQueryNode(node as SingleValuePropertyAccessNode, dbUtility);
                 case QueryNodeKind.CollectionPropertyAccess:
-                    return BindCollectionPropertyAccessNode(node as CollectionPropertyAccessNode, dbUtility);
+                    return BindCollectionPropertyAccessNode(node as CollectionPropertyAccessNode, dbUtility, entity);
                 case QueryNodeKind.SingleValueFunctionCall:
-                    return BindSingleValueFunctionCallNode(node as SingleValueFunctionCallNode, pars, dbUtility);
+                    return BindSingleValueFunctionCallNode(node as SingleValueFunctionCallNode, entity, dbUtility, pars);
                 case QueryNodeKind.Any:
-                    return BindAnyNode(node as AnyNode, pars, dbUtility);
+                    return BindAnyNode(node as AnyNode, entity, dbUtility, pars);
                 case QueryNodeKind.CollectionNavigationNode:
                 case QueryNodeKind.SingleNavigationNode:
                     SingleNavigationNode navigationNode = node as SingleNavigationNode;
-                    return BindNavigationPropertyNode(navigationNode.Source, navigationNode.NavigationProperty, pars, dbUtility);
+                    return BindNavigationPropertyNode(navigationNode.Source, navigationNode.NavigationProperty, entity, dbUtility, pars);
                 case QueryNodeKind.SingleValueOpenPropertyAccess:
                     break;
                 case QueryNodeKind.SingleResourceCast:
                     break;
                 case QueryNodeKind.All:
-                    return BindAllNode(node as AllNode, pars, dbUtility);
+                    return BindAllNode(node as AllNode, entity, dbUtility, pars);
                 case QueryNodeKind.CollectionResourceCast:
                     break;
                 case QueryNodeKind.ResourceRangeVariableReference:
@@ -106,51 +107,51 @@ namespace maskx.OData.SQLSource
             return string.Empty;
         }
 
-        static string BindCollectionPropertyAccessNode(CollectionPropertyAccessNode collectionPropertyAccessNode, DbUtility dbUtility)
+        static string BindCollectionPropertyAccessNode(CollectionPropertyAccessNode collectionPropertyAccessNode, SQLBase dbUtility, Entity entity)
         {
-            return dbUtility.SafeDbObject(collectionPropertyAccessNode.Property.Name);
+            return dbUtility.SafeDbObject(entity.Properties[collectionPropertyAccessNode.Property.Name].OriginalName);
             //return Bind(collectionPropertyAccessNode.Source) + "." + collectionPropertyAccessNode.Property.Name;
         }
 
-        static string BindNavigationPropertyNode(SingleValueNode singleValueNode, IEdmNavigationProperty edmNavigationProperty, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindNavigationPropertyNode(SingleValueNode singleValueNode, IEdmNavigationProperty edmNavigationProperty, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
-            return Bind(singleValueNode, pars, dbUtility) + "." + dbUtility.SafeDbObject(edmNavigationProperty.Name);
+            return Bind(singleValueNode, entity, dbUtility, pars) + "." + dbUtility.SafeDbObject(edmNavigationProperty.Name);
         }
-        static string BindNavigationPropertyNode(SingleEntityNode singleEntityNode, IEdmNavigationProperty edmNavigationProperty, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindNavigationPropertyNode(SingleEntityNode singleEntityNode, IEdmNavigationProperty edmNavigationProperty, Entity entityy, SQLBase dbUtility, List<DbParameter> pars)
         {
-            return Bind(singleEntityNode, pars, dbUtility) + "." + edmNavigationProperty.Name;
+            return Bind(singleEntityNode, entityy, dbUtility, pars) + "." + edmNavigationProperty.Name;
         }
-        static string BindUnaryOperatorNode(UnaryOperatorNode unaryOperatorNode, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindUnaryOperatorNode(UnaryOperatorNode unaryOperatorNode, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
-            return BindUnaryOperatorKind(unaryOperatorNode.OperatorKind) + "(" + Bind(unaryOperatorNode.Operand, pars, dbUtility) + ")";
+            return BindUnaryOperatorKind(unaryOperatorNode.OperatorKind) + "(" + Bind(unaryOperatorNode.Operand, entity, dbUtility, pars) + ")";
         }
-        static string BindPropertyAccessQueryNode(SingleValuePropertyAccessNode singleValuePropertyAccessNode, DbUtility dbUtility)
+        static string BindPropertyAccessQueryNode(SingleValuePropertyAccessNode singleValuePropertyAccessNode, SQLBase dbUtility)
         {
-            return singleValuePropertyAccessNode.Property.Name;
+            return dbUtility.SafeDbObject(singleValuePropertyAccessNode.Property.Name);
         }
 
-        static string BindRangeVariable(NonResourceRangeVariable nonentityRangeVariable, DbUtility dbUtility)
+        static string BindRangeVariable(NonResourceRangeVariable nonentityRangeVariable, SQLBase dbUtility)
         {
             return nonentityRangeVariable.Name;
         }
 
-        static string BindRangeVariable(ResourceRangeVariable entityRangeVariable, DbUtility dbUtility)
+        static string BindRangeVariable(ResourceRangeVariable entityRangeVariable, SQLBase dbUtility)
         {
             return entityRangeVariable.Name;
         }
 
-        static string BindConvertNode(ConvertNode convertNode, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindConvertNode(ConvertNode convertNode, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
-            return Bind(convertNode.Source, pars, dbUtility);
+            return Bind(convertNode.Source, entity, dbUtility, pars);
         }
-        static string BindBinaryOperatorKind(BinaryOperatorKind binaryOpertor, DbUtility dbUtility)
+        static string BindBinaryOperatorKind(BinaryOperatorKind binaryOpertor, SQLBase dbUtility)
         {
             switch (binaryOpertor)
             {
                 case BinaryOperatorKind.Add:
                     return "+";
                 case BinaryOperatorKind.And:
-                    return "AND";
+                    return " AND ";
                 case BinaryOperatorKind.Divide:
                     return "/";
                 case BinaryOperatorKind.Equal:
@@ -170,7 +171,7 @@ namespace maskx.OData.SQLSource
                 case BinaryOperatorKind.NotEqual:
                     return "<>";
                 case BinaryOperatorKind.Or:
-                    return "OR";
+                    return " OR ";
                 case BinaryOperatorKind.Subtract:
                     return "-";
                 default:
@@ -184,32 +185,32 @@ namespace maskx.OData.SQLSource
                 case UnaryOperatorKind.Negate:
                     return "!";
                 case UnaryOperatorKind.Not:
-                    return "NOT";
+                    return " NOT ";
                 default:
                     return null;
             }
         }
-        static string BindConstantNode(ConstantNode constantNode, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindConstantNode(ConstantNode constantNode, Entity entity, List<DbParameter> pars, SQLBase dbUtility)
         {
             return dbUtility.CreateParameter(constantNode.Value, pars).ParameterName;
         }
-        static string BindAllNode(AllNode allNode, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindAllNode(AllNode allNode, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
-            string innerQuery = "not exists ( from " + Bind(allNode.Source, pars, dbUtility) + " " + allNode.RangeVariables.First().Name;
-            innerQuery += " where NOT(" + Bind(allNode.Body, pars, dbUtility) + ")";
+            string innerQuery = "not exists ( from " + Bind(allNode.Source, entity, dbUtility, pars) + " " + allNode.RangeVariables.First().Name;
+            innerQuery += " where NOT(" + Bind(allNode.Body, entity, dbUtility, pars) + ")";
             return innerQuery + ")";
         }
 
-        static string BindAnyNode(AnyNode anyNode, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindAnyNode(AnyNode anyNode, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
-            string innerQuery = "exists ( from " + Bind(anyNode.Source, pars, dbUtility) + " " + anyNode.RangeVariables.First().Name;
+            string innerQuery = "exists ( from " + Bind(anyNode.Source, entity, dbUtility, pars) + " " + anyNode.RangeVariables.First().Name;
             if (anyNode.Body != null)
             {
-                innerQuery += " where " + Bind(anyNode.Body, pars, dbUtility);
+                innerQuery += " where " + Bind(anyNode.Body, entity, dbUtility, pars);
             }
             return innerQuery + ")";
         }
-        static string BindSingleValueFunctionCallNode(SingleValueFunctionCallNode node, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindSingleValueFunctionCallNode(SingleValueFunctionCallNode node, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
             var arguments = node.Parameters.ToList();
             string name = string.Empty;
@@ -222,48 +223,29 @@ namespace maskx.OData.SQLSource
                     List<string> p = new List<string>();
                     foreach (var item in arguments)
                     {
-                        parValue = Bind(item, pars, dbUtility);
-                        dbpar = dbUtility.CreateParameter(parValue, pars);
-                        p.Add(dbpar.ParameterName);
+                        p.Add(Bind(item, entity, dbUtility, pars));
                     }
                     return string.Format("concat({0})", string.Join(",", p));
                 case "contains":
-                    name = dbUtility.SafeDbObject(Bind(arguments[0], pars, dbUtility));
-                    parValue = string.Format("%{0}%", (arguments[1] as ConstantNode).Value);
                     dbpar = dbUtility.CreateParameter(parValue, pars);
-                    return string.Format("{0} like {1}", name, dbpar.ParameterName);
+                    return string.Format("{0} like '%'+{1}+'%'", Bind(arguments[0], entity, dbUtility, pars), Bind(arguments[1], entity, dbUtility, pars));
                 case "endswith":
-                    name = dbUtility.SafeDbObject(Bind(arguments[0], pars, dbUtility));
-                    parValue = string.Format("%{0}", (arguments[1] as ConstantNode).Value);
-                    dbpar = dbUtility.CreateParameter(parValue, pars);
-                    return string.Format("{0} like {1}", name, dbpar.ParameterName);
+                    return string.Format("{0} like '%'+{1}", Bind(arguments[0], entity, dbUtility, pars), Bind(arguments[1], entity, dbUtility, pars));
                 case "startswith":
-                    name = Bind(arguments[0], pars, dbUtility);
-                    parValue = string.Format("{0}%", (arguments[1] as ConstantNode).Value);
-                    dbpar = dbUtility.CreateParameter(parValue, pars);
-                    return string.Format("{0} like {1}", name, parName);
+                    return string.Format("{0} like {1}+'%'", Bind(arguments[0], entity, dbUtility, pars), Bind(arguments[1], entity, dbUtility, pars));
                 case "length":
-                    return string.Format("len({0})", Bind(arguments[0], pars, dbUtility));
+                    return string.Format("len({0})", Bind(arguments[0], entity, dbUtility, pars));
                 case "indexof":
-                    name = dbUtility.SafeDbObject(Bind(arguments[0], pars, dbUtility));
-                    parValue = (arguments[1] as ConstantNode).Value;
-                    dbpar = dbUtility.CreateParameter(parValue, pars);
-                    return string.Format("charindex({0},{1})", dbpar.ParameterName, name);
+                    return string.Format("charindex({0},{1})", Bind(arguments[0], entity, dbUtility, pars), Bind(arguments[1], entity, dbUtility, pars));
                 case "substring":
-                    parValue = Bind(arguments[0], pars, dbUtility);
-                    dbpar = dbUtility.CreateParameter(parValue, pars);
                     return string.Format("SUBSTRING({0},{1},{2})",
-                        dbpar.ParameterName,
-                        (arguments[1] as ConstantNode).Value,
-                       arguments.Count > 2 ? (arguments[2] as ConstantNode).Value : 0);
+                        Bind(arguments[0], entity, dbUtility, pars),
+                        Bind(arguments[1], entity, dbUtility, pars),
+                       arguments.Count > 2 ? Bind(arguments[2], entity, dbUtility, pars) : 0);
                 case "tolower":
-                    parValue = Bind(arguments[0], pars, dbUtility);
-                    dbpar = dbUtility.CreateParameter(parValue, pars);
-                    return "LOWER(" + dbpar.ParameterName + ")";
+                    return "LOWER(" + Bind(arguments[0], entity, dbUtility, pars) + ")";
                 case "toupper":
-                    parValue = Bind(arguments[0], pars, dbUtility);
-                    dbpar = dbUtility.CreateParameter(parValue, pars);
-                    return "UPPER(" + parName + ")";
+                    return "UPPER(" + Bind(arguments[0], entity, dbUtility, pars) + ")";
                 case "trim":
                 case "year":
                 case "years":
@@ -280,17 +262,15 @@ namespace maskx.OData.SQLSource
                 case "round":
                 case "floor":
                 case "ceiling":
-                    parValue = Bind(arguments[0], pars, dbUtility);
-                    dbpar = dbUtility.CreateParameter(parValue, pars);
-                    return node.Name + "(" + parName + ")";
+                    return node.Name + "(" + Bind(arguments[0], entity, dbUtility, pars) + ")";
                 default:
                     throw new NotImplementedException();
             }
         }
-        static string BindBinaryOperatorNode(BinaryOperatorNode binaryOperatorNode, List<DbParameter> pars, DbUtility dbUtility)
+        static string BindBinaryOperatorNode(BinaryOperatorNode binaryOperatorNode, Entity entity, SQLBase dbUtility, List<DbParameter> pars)
         {
-            var left = Bind(binaryOperatorNode.Left, pars, dbUtility);
-            var right = Bind(binaryOperatorNode.Right, pars, dbUtility);
+            var left = Bind(binaryOperatorNode.Left, entity, dbUtility, pars);
+            var right = Bind(binaryOperatorNode.Right, entity, dbUtility, pars);
             if (binaryOperatorNode.OperatorKind == BinaryOperatorKind.Equal
                 && right == "null")
                 return "(" + left + " is null)";

@@ -13,15 +13,19 @@ namespace Test
         {
             services.AddControllers().AddOData(opt => opt.Count().Filter().Expand().Select().OrderBy().SetMaxTop(5));
             services.AddDynamicOdata();
-            services.AddOptions<DynamicOdataOptions>().Configure((options) =>
+            services.AddOptions<DynamicODataOptions>().Configure((options) =>
             {
-                options.DataSources.Add(Common._RouterPrefix, new SQLServer("ds", "Data Source=.;Initial Catalog=Northwind;Integrated Security=True"));
+
             });
         }
         public void Configure(IApplicationBuilder app)
         {
             app.UseRouting();
             app.UseODataRouteDebug();
+            app.UseDynamicOdata((builder) =>
+            {
+                builder.AddDataSource(Common._RouterPrefix, new SQLServer("Data Source=.;Initial Catalog=Northwind;Integrated Security=True"));
+            });
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();

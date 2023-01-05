@@ -13,8 +13,8 @@ namespace maskx.OData
     public class DynamicApplicationModelProvider : IApplicationModelProvider
     {
         public int Order => 1;
-        private readonly DynamicOdataOptions _Options;
-        public DynamicApplicationModelProvider(IOptions<ODataOptions> odataOptions, IOptions<DynamicOdataOptions> options)
+        private readonly DynamicODataOptions _Options;
+        public DynamicApplicationModelProvider(IOptions<ODataOptions> odataOptions, IOptions<DynamicODataOptions> options)
         {
             _Options = options.Value;
             foreach (var ds in options.Value.DataSources)

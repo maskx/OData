@@ -8,8 +8,7 @@ namespace maskx.OData
 {
     public interface IDataSource
     {
-        Configuration Configuration { get; set; }
-        string Name { get; }
+        DynamicODataOptions DynamicODataOptions { get; set; }
         EdmModel Model { get; }
 
         EdmEntityObjectCollection Get(ODataQueryOptions queryOptions);
